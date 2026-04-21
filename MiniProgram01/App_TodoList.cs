@@ -42,7 +42,7 @@ public class App_TodoList : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(10 * scale));
 
-        // --- 頂部控制區 (修改需求：項目：文字框、新增、導出PDF 同一排) ---
+        // --- 頂部控制區 ---
         TableLayoutPanel topBar = new TableLayoutPanel() {
             Dock = DockStyle.Top,
             Height = (int)(45 * scale),
@@ -141,10 +141,13 @@ public class App_TodoList : UserControl {
         text = text.Trim(); 
         if (string.IsNullOrEmpty(text)) return;
         
+        // 【修改需求】：將自動產生的日期改為備註的第一行，標題不再加入日期
         if (source == "手動") {
-            string datePrefix = DateTime.Now.ToString("yy/M/d") + " ";
-            if (!text.StartsWith(datePrefix)) {
-                text = datePrefix + text;
+            string dateNote = $"本項目於：{DateTime.Now:yyyy年MM月dd日} 新增";
+            if (string.IsNullOrEmpty(note)) {
+                note = dateNote;
+            } else {
+                note = dateNote + "\r\n" + note;
             }
         }
 
@@ -265,17 +268,34 @@ public class App_TodoList : UserControl {
 
         Button btnNote = CreateCardButton("註");
         Action updateNoteStyle = () => {
+            // 【修改需求】：如果備註是空的，或者「完全等於」系統自動產生的那行日期文字，就不變色。
+            string autoGenPrefix = "本項目於：";
+            string autoGenSuffix = "新增";
+            bool isOnlySystemNote = false;
+            
             if (!string.IsNullOrEmpty(task.Note)) {
-                btnNote.BackColor = UITheme.AppleYellow; btnNote.ForeColor = UITheme.TextMain;
+                string trimmedNote = task.Note.Trim();
+                if (trimmedNote.StartsWith(autoGenPrefix) && trimmedNote.EndsWith(autoGenSuffix) && trimmedNote.Length <= 30) {
+                    isOnlySystemNote = true;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(task.Note) && !isOnlySystemNote) {
+                btnNote.BackColor = UITheme.AppleYellow; 
+                btnNote.ForeColor = UITheme.TextMain;
             } else {
-                btnNote.BackColor = UITheme.BgGray; btnNote.ForeColor = textColor; 
+                btnNote.BackColor = UITheme.BgGray; 
+                btnNote.ForeColor = textColor; 
             }
         };
         updateNoteStyle();
+
         btnNote.Click += (s, e) => {
             string newNote = ShowNoteEditBox(task.Text, task.Note);
             if (newNote != null) {
-                task.Note = newNote; UpdateTaskInDb(task); updateNoteStyle();
+                task.Note = newNote; 
+                UpdateTaskInDb(task); 
+                updateNoteStyle();
             }
         };
 
@@ -357,7 +377,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // --- 拖曳排序機制 ---
     private void OnTaskDragOver(object sender, DragEventArgs e) {
         e.Effect = DragDropEffects.Move;
         Point clientPoint = taskContainer.PointToClient(new Point(e.X, e.Y));
@@ -407,7 +426,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // --- 【修改需求】無彈窗直接儲存為 PDF，並保留分段分行 ---
     private void ExecuteExportPDF() {
         using (SaveFileDialog sfd = new SaveFileDialog()) {
             sfd.Filter = "PDF 檔案|*.pdf";
@@ -415,7 +433,6 @@ public class App_TodoList : UserControl {
             
             if (sfd.ShowDialog() == DialogResult.OK) {
                 PrintDocument pd = new PrintDocument();
-                // 指定使用系統內建的微軟 PDF 虛擬印表機
                 pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
                 pd.PrinterSettings.PrintToFile = true;
                 pd.PrinterSettings.PrintFileName = sfd.FileName;
@@ -452,7 +469,6 @@ public class App_TodoList : UserControl {
                         yPos += size.Height + 5; 
 
                         if (!string.IsNullOrWhiteSpace(t.Note)) {
-                            // 支援多行並加上縮排，保留使用者輸入的換行符號
                             string notePrefix = "   備註:\n      ";
                             string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
                             
@@ -481,7 +497,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // --- 對話框 UI (加入 AcceptsReturn = true 支援換行) ---
     private string ShowLargeEditBox(string defaultValue) {
         Form form = new Form() { 
             Width = (int)(450 * scale), Height = (int)(280 * scale), 
