@@ -10,7 +10,6 @@ public class App_Shortcuts : UserControl {
     private MainForm parentForm;
     private FlowLayoutPanel taskPanel;
 
-    // 拖曳排序相關變數
     private int dragInsertIndex = -1; 
     private float scale;
 
@@ -21,7 +20,6 @@ public class App_Shortcuts : UserControl {
         public int OrderIndex { get; set; }
     }
     
-    // UI 綁定的資料集合
     public List<ShortcutItem> shortcuts = new List<ShortcutItem>();
 
     public App_Shortcuts(MainForm mainForm) {
@@ -31,7 +29,6 @@ public class App_Shortcuts : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(10 * scale)); 
 
-        // --- 頂部標題列 ---
         TableLayoutPanel header = new TableLayoutPanel() { 
             Dock = DockStyle.Top, 
             Height = (int)(45 * scale), 
@@ -66,7 +63,6 @@ public class App_Shortcuts : UserControl {
         header.Controls.Add(btnAdd, 1, 0);
         this.Controls.Add(header);
 
-        // --- 捷徑容器 ---
         taskPanel = new FlowLayoutPanel() { 
             Dock = DockStyle.Fill, 
             AutoScroll = true, 
@@ -76,7 +72,6 @@ public class App_Shortcuts : UserControl {
             AllowDrop = true 
         };
 
-        // 綁定拖曳相關事件
         taskPanel.DragEnter += (s, e) => e.Effect = DragDropEffects.Move;
         taskPanel.DragOver += OnTaskDragOver;
         taskPanel.DragLeave += (s, e) => { dragInsertIndex = -1; taskPanel.Invalidate(); };
@@ -101,15 +96,15 @@ public class App_Shortcuts : UserControl {
         int startWidth = taskPanel.ClientSize.Width > (int)(50 * scale) ? taskPanel.ClientSize.Width - (int)(15 * scale) : (int)(450 * scale);
 
         foreach (var s in shortcuts) {
+            // 【修改需求】：卡片間距從 10 縮小至 3px
             Panel card = new Panel() { 
                 Width = startWidth, 
                 AutoSize = true, 
-                Margin = new Padding(0, 0, 0, (int)(10 * scale)), 
+                Margin = new Padding(0, 0, 0, (int)(3 * scale)), 
                 BackColor = UITheme.CardWhite,
-                Tag = s // 綁定資料庫 ID 與物件
+                Tag = s 
             };
 
-            // 自訂 iOS 圓角繪製
             card.Paint += (sender, e) => {
                 UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -179,7 +174,6 @@ public class App_Shortcuts : UserControl {
         }
     }
 
-    // --- 拖曳排序邏輯 ---
     private void OnTaskDragOver(object sender, DragEventArgs e) {
         e.Effect = DragDropEffects.Move;
         Point clientPoint = taskPanel.PointToClient(new Point(e.X, e.Y));
@@ -207,7 +201,6 @@ public class App_Shortcuts : UserControl {
             
             taskPanel.Controls.SetChildIndex(draggedCard, targetIdx);
             
-            // 寫入資料庫新順序
             using (var conn = DbHelper.GetConnection()) {
                 conn.Open();
                 using (var transaction = conn.BeginTransaction()) {
@@ -232,7 +225,6 @@ public class App_Shortcuts : UserControl {
         }
     }
 
-    // --- 資料庫操作 ---
     public void LoadShortcutsFromDb() {
         shortcuts.Clear();
         using (var conn = DbHelper.GetConnection()) {
@@ -294,9 +286,6 @@ public class App_Shortcuts : UserControl {
     }
 }
 
-// ==========================================
-// 視窗：新增/編輯捷徑 (UI/DPI 升級)
-// ==========================================
 public class EditShortcutWindow : Form {
     private App_Shortcuts parent;
     private App_Shortcuts.ShortcutItem currentItem;
