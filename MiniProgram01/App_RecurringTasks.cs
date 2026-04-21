@@ -380,9 +380,6 @@ public class App_RecurringTasks : UserControl {
     }
 }
 
-// ==========================================
-// 視窗：新增任務
-// ==========================================
 public class AddRecurringTaskWindow : Form {
     private App_RecurringTasks parent;
     private TextBox txtN, txtNote;
@@ -465,9 +462,6 @@ public class AddRecurringTaskWindow : Form {
     }
 }
 
-// ==========================================
-// 視窗：編輯任務
-// ==========================================
 public class EditRecurringTaskWindow : Form {
     private App_RecurringTasks parent;
     private App_RecurringTasks.RecurringTask task;
@@ -558,9 +552,6 @@ public class EditRecurringTaskWindow : Form {
     }
 }
 
-// ==========================================
-// 視窗：設定
-// ==========================================
 public class RecurringSettingsWindow : Form {
     private App_RecurringTasks parent;
     private ComboBox cmDig, cmAdv, cmScan;
@@ -613,13 +604,11 @@ public class RecurringSettingsWindow : Form {
     }
 }
 
-// ==========================================
-// 視窗：全部檢視 (含列印功能與 iOS 排版)
-// ==========================================
 public class AllTasksViewWindow : Form {
     private App_RecurringTasks parentControl;
     private FlowLayoutPanel flow;
     private float scale;
+    private bool isRefreshing = false; // 【修改需求】：加入刷新鎖，防止重新載入時無限卡死
 
     public AllTasksViewWindow(App_RecurringTasks parent) {
         this.parentControl = parent; 
@@ -636,7 +625,6 @@ public class AllTasksViewWindow : Form {
 
         Label lbl = new Label() { Text = "週期任務排程總覽", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding((int)(20 * scale),0,0,0), Font = UITheme.GetFont(16f, FontStyle.Bold), ForeColor = UITheme.TextMain };
         
-        // 【修改需求】：改成導出 PDF
         Button btnPrint = new Button() { Text = "導出 PDF", Width = (int)(120 * scale), Height = (int)(40 * scale), BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Anchor = AnchorStyles.Right, Margin = new Padding(0,0,(int)(20 * scale),0), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
@@ -651,7 +639,6 @@ public class AllTasksViewWindow : Form {
         this.Controls.Add(flow); flow.BringToFront(); RefreshData();
     }
 
-    // 【修改需求】：實作直接儲存 PDF 且支援換行縮排
     private void ExecuteExportPDF() {
         using (SaveFileDialog sfd = new SaveFileDialog()) {
             sfd.Filter = "PDF 檔案|*.pdf";
@@ -671,7 +658,6 @@ public class AllTasksViewWindow : Form {
 
                 var tasks = parentControl.tasks;
                 
-                // 為了方便分頁，先將所有要印的內容組裝成行
                 List<Tuple<string, Font, Brush>> lines = new List<Tuple<string, Font, Brush>>();
                 lines.Add(new Tuple<string, Font, Brush>("週期任務排程總覽", titleFont, Brushes.Black));
                 lines.Add(new Tuple<string, Font, Brush>("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), txtFont, Brushes.Gray));
@@ -731,14 +717,24 @@ public class AllTasksViewWindow : Form {
     }
 
     public void RefreshData() {
-        flow.Controls.Clear(); 
-        var tasks = parentControl.tasks;
+        // 【修改需求】：加入防當機鎖定機制，確保繪製安全
+        if (isRefreshing) return;
+        isRefreshing = true;
+        flow.SuspendLayout();
         
-        AddGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
-        AddGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
-        AddGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
-        for (int i = 1; i <= 12; i++) AddGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
-        AddGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
+        try {
+            flow.Controls.Clear(); 
+            var tasks = parentControl.tasks;
+            
+            AddGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
+            AddGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
+            AddGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
+            for (int i = 1; i <= 12; i++) AddGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
+            AddGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
+        } finally {
+            flow.ResumeLayout();
+            isRefreshing = false;
+        }
     }
 
     private void AddGroup(string header, List<App_RecurringTasks.RecurringTask> sub) {
@@ -768,7 +764,11 @@ public class AllTasksViewWindow : Form {
 
             Button bE = new Button() { Text = "調", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
             bE.FlatAppearance.BorderSize = 0;
-            bE.Click += (s, e) => { new EditRecurringTaskWindow(parentControl, t).Show(); };
+            // 【修改需求】：改為 ShowDialog 同步等待，關閉後安全觸發 RefreshData 重新渲染畫面
+            bE.Click += (s, e) => { 
+                new EditRecurringTaskWindow(parentControl, t).ShowDialog(); 
+                RefreshData(); 
+            };
 
             Button bD = new Button() { Text = "✕", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleRed, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
             bD.FlatAppearance.BorderSize = 0;
