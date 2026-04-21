@@ -112,8 +112,8 @@ public class App_Screenshot : UserControl {
             }
         }
         
-        // 確保喚醒後切換回截圖分頁 (Index 5)
-        parentForm.ShowAppWindow(5); 
+        // 【修改】：確保喚醒後切換回截圖分頁，加入行程分頁後此 Index 變為 6
+        parentForm.ShowAppWindow(6); 
     }
 
     private void BtnCopy_Click(object sender, EventArgs e) {
