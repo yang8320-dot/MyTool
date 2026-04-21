@@ -40,6 +40,7 @@ public class MainForm : Form {
     public App_FileWatcher fileWatcherApp;
     public App_TodoList todoApp;
     public App_TodoList planApp; 
+    public App_TodoList scheduleApp; // 【新增】：行程清單
     public App_RecurringTasks recurringApp;
     public App_Shortcuts shortcutsApp;
     public App_Screenshot screenshotApp;
@@ -97,8 +98,8 @@ public class MainForm : Form {
         tabControl = new TabControl();
         tabControl.Dock = DockStyle.Fill;
         tabControl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
-        // DPI 動態調整 Tab 大小
-        tabControl.ItemSize = new Size((int)(82 * scale), (int)(38 * scale));
+        // 【修改】：DPI 動態調整 Tab 大小，將寬度從 82 縮小到 68 以塞入第七個分頁
+        tabControl.ItemSize = new Size((int)(68 * scale), (int)(38 * scale));
         tabControl.Padding = new Point(0, 0);
         tabControl.SizeMode = TabSizeMode.Fixed; 
         tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
@@ -111,10 +112,20 @@ public class MainForm : Form {
 
         // 初始化各模組
         fileWatcherApp = new App_FileWatcher(this, trayMenu);
-        todoApp = new App_TodoList(this, "todo", "轉待規");
-        planApp = new App_TodoList(this, "plan", "轉待辦");
-        todoApp.TargetList = planApp;
-        planApp.TargetList = todoApp;
+        todoApp = new App_TodoList(this, "todo", "待辦清單");
+        planApp = new App_TodoList(this, "plan", "待規清單");
+        scheduleApp = new App_TodoList(this, "schedule", "行程清單"); // 【新增】：行程清單初始化
+        
+        // 【修改】：設定三個清單之間的互連動態選單
+        todoApp.TargetLists.Add("待規", planApp);
+        todoApp.TargetLists.Add("行程", scheduleApp);
+        
+        planApp.TargetLists.Add("待辦", todoApp);
+        planApp.TargetLists.Add("行程", scheduleApp);
+        
+        scheduleApp.TargetLists.Add("待辦", todoApp);
+        scheduleApp.TargetLists.Add("待規", planApp);
+
         recurringApp = new App_RecurringTasks(this, todoApp); 
         shortcutsApp = new App_Shortcuts(this);
         screenshotApp = new App_Screenshot(this);
@@ -122,23 +133,26 @@ public class MainForm : Form {
         fileWatcherApp.Dock = DockStyle.Fill;
         todoApp.Dock = DockStyle.Fill;
         planApp.Dock = DockStyle.Fill;
+        scheduleApp.Dock = DockStyle.Fill; // 【新增】
         recurringApp.Dock = DockStyle.Fill;
         shortcutsApp.Dock = DockStyle.Fill;
         screenshotApp.Dock = DockStyle.Fill;
 
-        tabControl.TabPages.Add(new TabPage("監控") { BackColor = UITheme.BgGray });
-        tabControl.TabPages.Add(new TabPage("待辦") { BackColor = UITheme.BgGray });
-        tabControl.TabPages.Add(new TabPage("待規") { BackColor = UITheme.BgGray }); 
-        tabControl.TabPages.Add(new TabPage("週期") { BackColor = UITheme.BgGray });
-        tabControl.TabPages.Add(new TabPage("捷徑") { BackColor = UITheme.BgGray });
-        tabControl.TabPages.Add(new TabPage("截圖") { BackColor = UITheme.BgGray });
+        tabControl.TabPages.Add(new TabPage("監控") { BackColor = UITheme.BgGray }); // 0
+        tabControl.TabPages.Add(new TabPage("待辦") { BackColor = UITheme.BgGray }); // 1
+        tabControl.TabPages.Add(new TabPage("待規") { BackColor = UITheme.BgGray }); // 2
+        tabControl.TabPages.Add(new TabPage("行程") { BackColor = UITheme.BgGray }); // 3 【新增】
+        tabControl.TabPages.Add(new TabPage("週期") { BackColor = UITheme.BgGray }); // 4
+        tabControl.TabPages.Add(new TabPage("捷徑") { BackColor = UITheme.BgGray }); // 5
+        tabControl.TabPages.Add(new TabPage("截圖") { BackColor = UITheme.BgGray }); // 6
 
         tabControl.TabPages[0].Controls.Add(fileWatcherApp);
         tabControl.TabPages[1].Controls.Add(todoApp);
         tabControl.TabPages[2].Controls.Add(planApp); 
-        tabControl.TabPages[3].Controls.Add(recurringApp);
-        tabControl.TabPages[4].Controls.Add(shortcutsApp);
-        tabControl.TabPages[5].Controls.Add(screenshotApp);
+        tabControl.TabPages[3].Controls.Add(scheduleApp); // 【新增】
+        tabControl.TabPages[4].Controls.Add(recurringApp);
+        tabControl.TabPages[5].Controls.Add(shortcutsApp);
+        tabControl.TabPages[6].Controls.Add(screenshotApp);
 
         flashTimer = new System.Windows.Forms.Timer() { Interval = 500 };
         flashTimer.Tick += (s, e) => {
@@ -194,7 +208,8 @@ public class MainForm : Form {
         if (isSelected) {
             float scale = this.DeviceDpi / 96f;
             using (SolidBrush lineBrush = new SolidBrush(UITheme.AppleBlue)) {
-                e.Graphics.FillRectangle(lineBrush, e.Bounds.Left + 10, e.Bounds.Bottom - (int)(4 * scale), e.Bounds.Width - 20, (int)(4 * scale));
+                // 因應寬度變窄，微調畫線的起始與寬度
+                e.Graphics.FillRectangle(lineBrush, e.Bounds.Left + 8, e.Bounds.Bottom - (int)(4 * scale), e.Bounds.Width - 16, (int)(4 * scale));
             }
         }
     }
