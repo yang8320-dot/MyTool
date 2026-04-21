@@ -183,10 +183,11 @@ public class App_RecurringTasks : UserControl {
         int startWidth = taskPanel.ClientSize.Width > (int)(50 * scale) ? taskPanel.ClientSize.Width - (int)(15 * scale) : (int)(450 * scale);
         
         foreach (var t in tasks) {
+            // 【修改需求】：卡片間距改為 3 * scale，讓排列變緊密，取消頂部邊距
             Panel card = new Panel() {
                 Width = startWidth,
                 AutoSize = true,
-                Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(10 * scale)),
+                Margin = new Padding((int)(5 * scale), 0, (int)(5 * scale), (int)(3 * scale)),
                 BackColor = UITheme.CardWhite,
             };
 
@@ -343,7 +344,7 @@ public class App_RecurringTasks : UserControl {
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
                         
-                        parentForm.AlertTab(1);
+                        parentForm.AlertTab(1); // 提醒分頁
                         
                         if (t.TaskType == "單次" || t.TaskType == "到期日") {
                             toRemove.Add(t);
