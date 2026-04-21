@@ -14,7 +14,6 @@ public class App_RecurringTasks : UserControl {
     private System.Windows.Forms.Timer checkTimer;
     private float scale;
 
-    // 全域排程設定 (對應資料庫 Settings 表)
     public string digestType { get; set; } = "不提醒";
     public string digestTimeStr { get; set; } = "08:00";
     public string lastDigestDate { get; set; } = "";
@@ -42,7 +41,6 @@ public class App_RecurringTasks : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(5 * scale));
 
-        // --- 頂部控制列 ---
         TableLayoutPanel header = new TableLayoutPanel();
         header.Dock = DockStyle.Top;
         header.Height = (int)(50 * scale);
@@ -53,12 +51,9 @@ public class App_RecurringTasks : UserControl {
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(90 * scale)));
 
         Label lblTitle = new Label() {
-            Text = "週期任務",
-            Font = UITheme.GetFont(12f, FontStyle.Bold),
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding((int)(5 * scale), 0, 0, 0),
-            ForeColor = UITheme.TextMain
+            Text = "週期任務", Font = UITheme.GetFont(12f, FontStyle.Bold),
+            Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding((int)(5 * scale), 0, 0, 0), ForeColor = UITheme.TextMain
         };
 
         Button btnViewAll = CreateHeaderButton("全部檢視", UITheme.CardWhite, UITheme.AppleBlue);
@@ -77,7 +72,6 @@ public class App_RecurringTasks : UserControl {
         header.Controls.Add(btnSet, 3, 0);
         this.Controls.Add(header);
 
-        // --- 任務卡片容器 ---
         taskPanel = new FlowLayoutPanel();
         taskPanel.Dock = DockStyle.Fill;
         taskPanel.AutoScroll = true;
@@ -109,14 +103,9 @@ public class App_RecurringTasks : UserControl {
 
     private Button CreateHeaderButton(string text, Color bg, Color fg) {
         Button btn = new Button() {
-            Text = text,
-            Dock = DockStyle.Fill,
-            FlatStyle = FlatStyle.Flat,
+            Text = text, Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat,
             Margin = new Padding((int)(2 * scale), (int)(8 * scale), (int)(2 * scale), (int)(8 * scale)),
-            Cursor = Cursors.Hand,
-            BackColor = bg,
-            ForeColor = fg,
-            Font = UITheme.GetFont(10f, FontStyle.Bold)
+            Cursor = Cursors.Hand, BackColor = bg, ForeColor = fg, Font = UITheme.GetFont(10f, FontStyle.Bold)
         };
         btn.FlatAppearance.BorderSize = 0;
         return btn;
@@ -135,7 +124,6 @@ public class App_RecurringTasks : UserControl {
         }
     }
 
-    // --- 資料庫存取 ---
     private void LoadSettingsFromDb() {
         digestType = DbHelper.GetSetting("Recur_DigestType", "不提醒");
         digestTimeStr = DbHelper.GetSetting("Recur_DigestTime", "08:00");
@@ -161,12 +149,9 @@ public class App_RecurringTasks : UserControl {
                 using (var reader = cmd.ExecuteReader()) {
                     while (reader.Read()) {
                         tasks.Add(new RecurringTask {
-                            Id = reader.GetInt32(0),
-                            Name = reader.GetString(1),
-                            MonthStr = reader.GetString(2),
-                            DateStr = reader.GetString(3),
-                            TimeStr = reader.GetString(4),
-                            TaskType = reader.GetString(5),
+                            Id = reader.GetInt32(0), Name = reader.GetString(1),
+                            MonthStr = reader.GetString(2), DateStr = reader.GetString(3),
+                            TimeStr = reader.GetString(4), TaskType = reader.GetString(5),
                             Note = reader.IsDBNull(6) ? "" : reader.GetString(6),
                             LastTriggeredDate = reader.IsDBNull(7) ? "" : reader.GetString(7),
                             OrderIndex = reader.GetInt32(8)
@@ -183,10 +168,8 @@ public class App_RecurringTasks : UserControl {
         int startWidth = taskPanel.ClientSize.Width > (int)(50 * scale) ? taskPanel.ClientSize.Width - (int)(15 * scale) : (int)(450 * scale);
         
         foreach (var t in tasks) {
-            // 【修改需求】：卡片間距改為 3 * scale，讓排列變緊密，取消頂部邊距
             Panel card = new Panel() {
-                Width = startWidth,
-                AutoSize = true,
+                Width = startWidth, AutoSize = true,
                 Margin = new Padding((int)(5 * scale), 0, (int)(5 * scale), (int)(3 * scale)),
                 BackColor = UITheme.CardWhite,
             };
@@ -200,12 +183,8 @@ public class App_RecurringTasks : UserControl {
             };
 
             TableLayoutPanel tlp = new TableLayoutPanel() {
-                Dock = DockStyle.Fill,
-                ColumnCount = 4,
-                RowCount = 1,
-                AutoSize = true,
-                Padding = new Padding((int)(8 * scale)),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, AutoSize = true,
+                Padding = new Padding((int)(8 * scale)), BackColor = Color.Transparent
             };
             
             tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(40 * scale))); 
@@ -220,9 +199,7 @@ public class App_RecurringTasks : UserControl {
             Button btnDel = new Button() { Text = "✕", Dock = DockStyle.Top, Height = (int)(32 * scale), BackColor = UITheme.AppleRed, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold) };
             btnDel.FlatAppearance.BorderSize = 0;
             btnDel.Click += (s, e) => { 
-                if (MessageBox.Show("確定移除此週期任務？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) {
-                    DeleteTask(t); 
-                }
+                if (MessageBox.Show("確定移除此週期任務？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) { DeleteTask(t); }
             };
 
             Button btnNote = new Button() { Text = "註", Dock = DockStyle.Top, Height = (int)(32 * scale), FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold) };
@@ -231,35 +208,21 @@ public class App_RecurringTasks : UserControl {
             btnNote.ForeColor = string.IsNullOrEmpty(t.Note) ? UITheme.TextMain : Color.Black;
             btnNote.Click += (s, e) => { 
                 string n = ShowNoteEditBox(t.Name, t.Note); 
-                if (n != null) { 
-                    t.Note = n; 
-                    UpdateTaskInDb(t);
-                    RefreshUI(); 
-                } 
+                if (n != null) { t.Note = n; UpdateTaskInDb(t); RefreshUI(); } 
             };
 
             string typeTag = $"[{t.TaskType}] ";
-            string timeInfo = t.MonthStr == "特定日期" 
-                ? $"[{t.DateStr} {t.TimeStr}]" 
-                : $"[{t.MonthStr} {t.DateStr} {t.TimeStr}]";
+            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.MonthStr} {t.DateStr} {t.TimeStr}]";
 
             Label lbl = new Label() {
-                Text = typeTag + timeInfo + " " + t.Name,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoSize = true,
-                Font = UITheme.GetFont(10.5f),
-                ForeColor = UITheme.TextMain,
-                Padding = new Padding((int)(5 * scale), 0, 0, 0)
+                Text = typeTag + timeInfo + " " + t.Name, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
+                AutoSize = true, Font = UITheme.GetFont(10.5f), ForeColor = UITheme.TextMain, Padding = new Padding((int)(5 * scale), 0, 0, 0)
             };
             
-            tlp.Controls.Add(btnEdit, 0, 0); 
-            tlp.Controls.Add(btnDel, 1, 0); 
-            tlp.Controls.Add(btnNote, 2, 0); 
-            tlp.Controls.Add(lbl, 3, 0);
+            tlp.Controls.Add(btnEdit, 0, 0); tlp.Controls.Add(btnDel, 1, 0); 
+            tlp.Controls.Add(btnNote, 2, 0); tlp.Controls.Add(lbl, 3, 0);
             
-            card.Controls.Add(tlp); 
-            taskPanel.Controls.Add(card);
+            card.Controls.Add(tlp); taskPanel.Controls.Add(card);
         }
     }
 
@@ -269,39 +232,27 @@ public class App_RecurringTasks : UserControl {
             conn.Open();
             string sql = "INSERT INTO RecurringTasks (Name, MonthStr, DateStr, TimeStr, TaskType, Note, LastTriggeredDate, OrderIndex) VALUES (@N, @M, @D, @T, @Ty, @No, '', @O)";
             using (var cmd = new SqliteCommand(sql, conn)) {
-                cmd.Parameters.AddWithValue("@N", name);
-                cmd.Parameters.AddWithValue("@M", month);
-                cmd.Parameters.AddWithValue("@D", date);
-                cmd.Parameters.AddWithValue("@T", time);
-                cmd.Parameters.AddWithValue("@Ty", type);
-                cmd.Parameters.AddWithValue("@No", note);
-                cmd.Parameters.AddWithValue("@O", orderIdx);
-                cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@N", name); cmd.Parameters.AddWithValue("@M", month);
+                cmd.Parameters.AddWithValue("@D", date); cmd.Parameters.AddWithValue("@T", time);
+                cmd.Parameters.AddWithValue("@Ty", type); cmd.Parameters.AddWithValue("@No", note);
+                cmd.Parameters.AddWithValue("@O", orderIdx); cmd.ExecuteNonQuery();
             }
         }
         LoadTasksFromDb();
     }
 
-    public void UpdateTaskDb(RecurringTask t) {
-        UpdateTaskInDb(t);
-        LoadTasksFromDb();
-    }
+    public void UpdateTaskDb(RecurringTask t) { UpdateTaskInDb(t); LoadTasksFromDb(); }
 
     private void UpdateTaskInDb(RecurringTask t) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "UPDATE RecurringTasks SET Name=@N, MonthStr=@M, DateStr=@D, TimeStr=@T, TaskType=@Ty, Note=@No, LastTriggeredDate=@L, OrderIndex=@O WHERE Id=@Id";
             using (var cmd = new SqliteCommand(sql, conn)) {
-                cmd.Parameters.AddWithValue("@N", t.Name);
-                cmd.Parameters.AddWithValue("@M", t.MonthStr);
-                cmd.Parameters.AddWithValue("@D", t.DateStr);
-                cmd.Parameters.AddWithValue("@T", t.TimeStr);
-                cmd.Parameters.AddWithValue("@Ty", t.TaskType);
-                cmd.Parameters.AddWithValue("@No", t.Note);
-                cmd.Parameters.AddWithValue("@L", t.LastTriggeredDate ?? "");
-                cmd.Parameters.AddWithValue("@O", t.OrderIndex);
-                cmd.Parameters.AddWithValue("@Id", t.Id);
-                cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@N", t.Name); cmd.Parameters.AddWithValue("@M", t.MonthStr);
+                cmd.Parameters.AddWithValue("@D", t.DateStr); cmd.Parameters.AddWithValue("@T", t.TimeStr);
+                cmd.Parameters.AddWithValue("@Ty", t.TaskType); cmd.Parameters.AddWithValue("@No", t.Note);
+                cmd.Parameters.AddWithValue("@L", t.LastTriggeredDate ?? ""); cmd.Parameters.AddWithValue("@O", t.OrderIndex);
+                cmd.Parameters.AddWithValue("@Id", t.Id); cmd.ExecuteNonQuery();
             }
         }
     }
@@ -310,8 +261,7 @@ public class App_RecurringTasks : UserControl {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             using (var cmd = new SqliteCommand("DELETE FROM RecurringTasks WHERE Id=@Id", conn)) {
-                cmd.Parameters.AddWithValue("@Id", task.Id);
-                cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@Id", task.Id); cmd.ExecuteNonQuery();
             }
         }
         LoadTasksFromDb();
@@ -320,14 +270,11 @@ public class App_RecurringTasks : UserControl {
     public void UpdateGlobalSettings(string dType, string dTime, int aDays, string sFreq) {
         digestType = dType; digestTimeStr = dTime; advanceDays = aDays; scanFrequency = sFreq;
         checkTimer.Enabled = false; checkTimer.Interval = GetTimerInterval(sFreq); checkTimer.Enabled = true;
-        SaveSettingsToDb(); 
-        MessageBox.Show("設定儲存成功！");
+        SaveSettingsToDb(); MessageBox.Show("設定儲存成功！");
     }
 
-    // --- 背景輪詢核心邏輯 ---
     private void CheckTasks() {
-        DateTime now = DateTime.Now; 
-        bool needsRefresh = false;
+        DateTime now = DateTime.Now; bool needsRefresh = false;
         List<RecurringTask> toRemove = new List<RecurringTask>();
 
         foreach (var t in tasks) {
@@ -338,33 +285,20 @@ public class App_RecurringTasks : UserControl {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
                     if (t.LastTriggeredDate != targetDateStr) {
                         string prefix = advanceDays > 0 ? $"[預排-{target:MM/dd}] " : "";
-                        // 推送到待辦
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
-                        t.LastTriggeredDate = targetDateStr; 
-                        UpdateTaskInDb(t);
+                        t.LastTriggeredDate = targetDateStr; UpdateTaskInDb(t);
+                        parentForm.AlertTab(1); 
                         
-                        parentForm.AlertTab(1); // 提醒分頁
-                        
-                        if (t.TaskType == "單次" || t.TaskType == "到期日") {
-                            toRemove.Add(t);
-                        }
+                        if (t.TaskType == "單次" || t.TaskType == "到期日") toRemove.Add(t);
                     }
                 }
             }
         }
 
-        if (toRemove.Count > 0) {
-            foreach (var r in toRemove) {
-                DeleteTask(r);
-            }
-            needsRefresh = true;
-        }
-        if (needsRefresh) {
-            this.Invoke(new Action(() => LoadTasksFromDb()));
-        }
+        if (toRemove.Count > 0) { foreach (var r in toRemove) DeleteTask(r); needsRefresh = true; }
+        if (needsRefresh) this.Invoke(new Action(() => LoadTasksFromDb()));
 
-        // 摘要提醒視窗檢查
         if (digestType != "不提醒") {
             DateTime dtDigest;
             if (DateTime.TryParseExact(digestTimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out dtDigest)) {
@@ -375,8 +309,7 @@ public class App_RecurringTasks : UserControl {
                 
                 string todayStr = now.ToString("yyyy-MM-dd");
                 if (shouldTrigger && lastDigestDate != todayStr) { 
-                    lastDigestDate = todayStr; 
-                    SaveSettingsToDb();
+                    lastDigestDate = todayStr; SaveSettingsToDb();
                     new AllTasksViewWindow(this).Show(); 
                 }
             }
@@ -387,8 +320,7 @@ public class App_RecurringTasks : UserControl {
         target = now;
         try {
             string[] timeParts = t.TimeStr.Split(':');
-            int h = int.Parse(timeParts[0]);
-            int m = int.Parse(timeParts[1]);
+            int h = int.Parse(timeParts[0]); int m = int.Parse(timeParts[1]);
 
             if (t.MonthStr == "特定日期") {
                 if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
@@ -439,7 +371,7 @@ public class App_RecurringTasks : UserControl {
         };
 
         Label lbl = new Label() { Text = "【" + name + "】", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(11f, FontStyle.Bold) };
-        TextBox txt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, Text = current, Font = UITheme.GetFont(10.5f) };
+        TextBox txt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, AcceptsReturn = true, Text = current, Font = UITheme.GetFont(10.5f) };
         Button btn = new Button() { Text = "儲存", Left = (int)(285 * scale), Top = (int)(280 * scale), Width = (int)(100 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold) };
         btn.FlatAppearance.BorderSize = 0;
 
@@ -471,7 +403,7 @@ public class AddRecurringTaskWindow : Form {
         txtN = new TextBox() { Width = (int)(340 * scale), Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtN);
 
         f.Controls.Add(new Label() { Text = "詳細說明 (註)：", Margin = new Padding(0, (int)(15 * scale), 0, 0), Font = UITheme.GetFont(10f, FontStyle.Bold) });
-        txtNote = new TextBox() { Width = (int)(340 * scale), Height = (int)(80 * scale), Multiline = true, Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtNote);
+        txtNote = new TextBox() { Width = (int)(340 * scale), Height = (int)(80 * scale), Multiline = true, AcceptsReturn = true, Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtNote);
         
         f.Controls.Add(new Label() { Text = "任務類型：", Margin = new Padding(0, (int)(15 * scale), 0, 0), Font = UITheme.GetFont(10f, FontStyle.Bold) });
         cmType = new ComboBox() { Width = (int)(340 * scale), DropDownStyle = ComboBoxStyle.DropDownList, Font = UITheme.GetFont(10.5f) };
@@ -557,7 +489,7 @@ public class EditRecurringTaskWindow : Form {
         txtN = new TextBox() { Width = (int)(340 * scale), Text = t.Name, Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtN);
 
         f.Controls.Add(new Label() { Text = "詳細說明 (註)：", Margin = new Padding(0, (int)(15 * scale), 0, 0), Font = UITheme.GetFont(10f, FontStyle.Bold) });
-        txtNote = new TextBox() { Width = (int)(340 * scale), Height = (int)(80 * scale), Multiline = true, Text = t.Note, Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtNote);
+        txtNote = new TextBox() { Width = (int)(340 * scale), Height = (int)(80 * scale), Multiline = true, AcceptsReturn = true, Text = t.Note, Font = UITheme.GetFont(10.5f) }; f.Controls.Add(txtNote);
         
         f.Controls.Add(new Label() { Text = "任務類型：", Margin = new Padding(0, (int)(15 * scale), 0, 0), Font = UITheme.GetFont(10f, FontStyle.Bold) });
         cmType = new ComboBox() { Width = (int)(340 * scale), DropDownStyle = ComboBoxStyle.DropDownList, Font = UITheme.GetFont(10.5f) };
@@ -689,12 +621,6 @@ public class AllTasksViewWindow : Form {
     private FlowLayoutPanel flow;
     private float scale;
 
-    private class PrintLineItem {
-        public string Text { get; set; }
-        public Font Font { get; set; }
-        public Brush Brush { get; set; }
-    }
-
     public AllTasksViewWindow(App_RecurringTasks parent) {
         this.parentControl = parent; 
         this.scale = this.DeviceDpi / 96f;
@@ -706,12 +632,14 @@ public class AllTasksViewWindow : Form {
 
         TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(70 * scale), BackColor = UITheme.CardWhite, ColumnCount = 2 };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(180 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(150 * scale)));
 
         Label lbl = new Label() { Text = "週期任務排程總覽", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding((int)(20 * scale),0,0,0), Font = UITheme.GetFont(16f, FontStyle.Bold), ForeColor = UITheme.TextMain };
-        Button btnPrint = new Button() { Text = "轉存 PDF / 列印", Width = (int)(150 * scale), Height = (int)(40 * scale), BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Anchor = AnchorStyles.Right, Margin = new Padding(0,0,(int)(20 * scale),0), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
+        
+        // 【修改需求】：改成導出 PDF
+        Button btnPrint = new Button() { Text = "導出 PDF", Width = (int)(120 * scale), Height = (int)(40 * scale), BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Anchor = AnchorStyles.Right, Margin = new Padding(0,0,(int)(20 * scale),0), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
         btnPrint.FlatAppearance.BorderSize = 0;
-        btnPrint.Click += (s, e) => ExecutePrint();
+        btnPrint.Click += (s, e) => ExecuteExportPDF();
 
         header.Controls.Add(lbl, 0, 0); header.Controls.Add(btnPrint, 1, 0); this.Controls.Add(header);
 
@@ -723,80 +651,83 @@ public class AllTasksViewWindow : Form {
         this.Controls.Add(flow); flow.BringToFront(); RefreshData();
     }
 
-    private void ExecutePrint() {
-        PrintDocument pd = new PrintDocument();
-        List<PrintLineItem> linesToPrint = BuildPrintLines();
-        int currentLine = 0;
+    // 【修改需求】：實作直接儲存 PDF 且支援換行縮排
+    private void ExecuteExportPDF() {
+        using (SaveFileDialog sfd = new SaveFileDialog()) {
+            sfd.Filter = "PDF 檔案|*.pdf";
+            sfd.FileName = $"週期任務總覽_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                PrintDocument pd = new PrintDocument();
+                pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
+                pd.PrinterSettings.PrintToFile = true;
+                pd.PrinterSettings.PrintFileName = sfd.FileName;
 
-        pd.PrintPage += (sender, args) => {
-            float yPos = args.MarginBounds.Top;
-            float leftMargin = args.MarginBounds.Left;
+                int currentLine = 0;
+                Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
+                Font headerFont = UITheme.GetFont(12f, FontStyle.Bold);
+                Font txtFont = UITheme.GetFont(10f);
+                Font noteFont = UITheme.GetFont(9f);
 
-            while (currentLine < linesToPrint.Count) {
-                var item = linesToPrint[currentLine];
-                SizeF size = args.Graphics.MeasureString(item.Text, item.Font, args.MarginBounds.Width);
+                var tasks = parentControl.tasks;
                 
-                if (yPos + size.Height > args.MarginBounds.Bottom) {
-                    args.HasMorePages = true;
-                    return; 
+                // 為了方便分頁，先將所有要印的內容組裝成行
+                List<Tuple<string, Font, Brush>> lines = new List<Tuple<string, Font, Brush>>();
+                lines.Add(new Tuple<string, Font, Brush>("週期任務排程總覽", titleFont, Brushes.Black));
+                lines.Add(new Tuple<string, Font, Brush>("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), txtFont, Brushes.Gray));
+                lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
+
+                Action<string, List<App_RecurringTasks.RecurringTask>> addGroup = (title, list) => {
+                    if (list.Count == 0) return;
+                    lines.Add(new Tuple<string, Font, Brush>("【 " + title + " 】", headerFont, Brushes.Blue));
+                    foreach (var t in list) {
+                        string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
+                        string mainTxt = $"[{t.TaskType}] {timeInfo}  {t.Name}";
+                        lines.Add(new Tuple<string, Font, Brush>(mainTxt, txtFont, Brushes.Black));
+                        
+                        if (!string.IsNullOrWhiteSpace(t.Note)) {
+                            string notePrefix = "   備註:\n      ";
+                            string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
+                            lines.Add(new Tuple<string, Font, Brush>(formattedNote, noteFont, Brushes.DimGray));
+                        }
+                    }
+                    lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
+                };
+
+                addGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
+                addGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
+                addGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
+                for (int i = 1; i <= 12; i++) addGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
+                addGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
+
+                pd.PrintPage += (sender, args) => {
+                    float yPos = args.MarginBounds.Top;
+                    float leftMargin = args.MarginBounds.Left;
+
+                    while (currentLine < lines.Count) {
+                        var item = lines[currentLine];
+                        SizeF size = args.Graphics.MeasureString(item.Item1, item.Item2, args.MarginBounds.Width);
+                        
+                        if (yPos + size.Height > args.MarginBounds.Bottom) {
+                            args.HasMorePages = true;
+                            return; 
+                        }
+
+                        args.Graphics.DrawString(item.Item1, item.Item2, item.Item3, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
+                        yPos += size.Height + 5; 
+                        currentLine++;
+                    }
+                    args.HasMorePages = false;
+                };
+
+                try {
+                    pd.Print();
+                    MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                } catch (Exception ex) {
+                    MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-
-                args.Graphics.DrawString(item.Text, item.Font, item.Brush, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
-                yPos += size.Height + (8 * scale); 
-                currentLine++;
-            }
-            args.HasMorePages = false;
-        };
-
-        PrintDialog pdlg = new PrintDialog();
-        pdlg.Document = pd;
-        pdlg.UseEXDialog = true; 
-
-        if (pdlg.ShowDialog() == DialogResult.OK) {
-            try {
-                pd.Print();
-                MessageBox.Show("列印 / 存檔指令已送出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            } catch (Exception ex) {
-                MessageBox.Show("列印失敗：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-    }
-
-    private List<PrintLineItem> BuildPrintLines() {
-        List<PrintLineItem> lines = new List<PrintLineItem>();
-        Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
-        Font headerFont = UITheme.GetFont(12f, FontStyle.Bold);
-        Font txtFont = UITheme.GetFont(10f);
-        Font noteFont = UITheme.GetFont(9f);
-
-        lines.Add(new PrintLineItem { Text = "週期任務排程總覽", Font = titleFont, Brush = Brushes.Black });
-        lines.Add(new PrintLineItem { Text = "產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), Font = txtFont, Brush = Brushes.Gray });
-        lines.Add(new PrintLineItem { Text = " ", Font = txtFont, Brush = Brushes.Black });
-
-        var tasks = parentControl.tasks;
-        
-        Action<string, List<App_RecurringTasks.RecurringTask>> addGroup = (title, list) => {
-            if (list.Count == 0) return;
-            lines.Add(new PrintLineItem { Text = "【 " + title + " 】", Font = headerFont, Brush = Brushes.Blue });
-            foreach (var t in list) {
-                string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
-                string mainTxt = $"[{t.TaskType}] {timeInfo}  {t.Name}";
-                
-                lines.Add(new PrintLineItem { Text = mainTxt, Font = txtFont, Brush = Brushes.Black });
-                if (!string.IsNullOrWhiteSpace(t.Note)) {
-                    lines.Add(new PrintLineItem { Text = "   備註: " + t.Note.Replace("\r\n", " ").Replace("\n", " "), Font = noteFont, Brush = Brushes.DimGray });
-                }
-            }
-            lines.Add(new PrintLineItem { Text = " ", Font = txtFont, Brush = Brushes.Black });
-        };
-
-        addGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
-        addGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
-        addGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
-        for (int i = 1; i <= 12; i++) addGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
-        addGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
-
-        return lines;
     }
 
     public void RefreshData() {
@@ -850,7 +781,7 @@ public class AllTasksViewWindow : Form {
             
             bN.Click += (s, e) => { 
                 Form nf = new Form() { Width = (int)(420 * scale), Height = (int)(380 * scale), Text = "任務備註", StartPosition = FormStartPosition.CenterScreen, TopMost = true, BackColor = UITheme.BgGray };
-                TextBox nt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, Text = t.Note, Font = UITheme.GetFont(10.5f) };
+                TextBox nt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, AcceptsReturn = true, Text = t.Note, Font = UITheme.GetFont(10.5f) };
                 Button nb = new Button() { Text = "儲存", Left = (int)(285 * scale), Top = (int)(280 * scale), Width = (int)(100 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold) };
                 nb.FlatAppearance.BorderSize = 0;
                 nf.Controls.AddRange(new Control[] { new Label() { Text = "【" + t.Name + "】", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(11f, FontStyle.Bold) }, nt, nb });
