@@ -8,11 +8,10 @@ using System.Threading;
 using Microsoft.Data.Sqlite;
 
 public class App_TodoList : UserControl {
-    // 【修改】：支援轉移到多個清單
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
     
-    private string listType; // "todo" 或 "plan" 等
-    private string titleName; // 用於列印顯示的清單名稱
+    private string listType; 
+    private string titleName; 
 
     private TextBox inputField;
     private FlowLayoutPanel taskContainer;
@@ -26,7 +25,6 @@ public class App_TodoList : UserControl {
         public int OrderIndex;
     }
     
-    // UI 中的卡片集合
     private List<TaskInfo> taskDataList = new List<TaskInfo>();
     private int dragInsertIndex = -1; 
     private MainForm mainForm;
@@ -44,59 +42,55 @@ public class App_TodoList : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(10 * scale));
 
-        // --- 頂部標題與列印按鈕區 (新增需求) ---
-        TableLayoutPanel header = new TableLayoutPanel() { 
-            Dock = DockStyle.Top, Height = (int)(40 * scale), ColumnCount = 2 
+        // --- 頂部控制區 (修改需求：項目：文字框、新增、導出PDF 同一排) ---
+        TableLayoutPanel topBar = new TableLayoutPanel() {
+            Dock = DockStyle.Top,
+            Height = (int)(45 * scale),
+            ColumnCount = 4,
+            Padding = new Padding(0)
         };
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(60 * scale))); 
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));               
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(65 * scale))); 
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(95 * scale))); 
 
         Label lblTitle = new Label() { 
-            Text = titleName, Font = UITheme.GetFont(12f, FontStyle.Bold), 
-            Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, 
+            Text = "項目：", Dock = DockStyle.Fill, 
+            TextAlign = ContentAlignment.MiddleRight, 
+            Font = UITheme.GetFont(11f, FontStyle.Bold), 
             ForeColor = UITheme.TextMain 
         };
         
-        Button btnPrint = new Button() { 
-            Text = "列印/PDF", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
-            Margin = new Padding((int)(2 * scale), (int)(5 * scale), (int)(2 * scale), (int)(5 * scale)), 
-            Cursor = Cursors.Hand, BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite,
-            Font = UITheme.GetFont(9f, FontStyle.Bold)
+        inputField = new TextBox() { 
+            Dock = DockStyle.Fill, Font = UITheme.GetFont(11f), 
+            Margin = new Padding(0, (int)(8 * scale), (int)(5 * scale), 0) 
         };
-        btnPrint.FlatAppearance.BorderSize = 0;
-        btnPrint.Click += (s, e) => ExecutePrint();
-
-        header.Controls.Add(lblTitle, 0, 0);
-        header.Controls.Add(btnPrint, 1, 0);
-
-        // --- 頂部輸入區 ---
-        TableLayoutPanel top = new TableLayoutPanel();
-        top.Dock = DockStyle.Top;
-        top.Height = (int)(45 * scale);
-        top.ColumnCount = 2;
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); 
-
-        inputField = new TextBox();
-        inputField.Dock = DockStyle.Fill;
-        inputField.Font = UITheme.GetFont(11f);
-        inputField.Margin = new Padding(0, (int)(8 * scale), (int)(8 * scale), 0);
         inputField.KeyDown += new KeyEventHandler(InputField_KeyDown);
-        
-        Button btnAdd = new Button();
-        btnAdd.Text = "新增";
-        btnAdd.Dock = DockStyle.Fill;
-        btnAdd.FlatStyle = FlatStyle.Flat;
+
+        Button btnAdd = new Button() { 
+            Text = "新增", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
+            BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, 
+            Font = UITheme.GetFont(10.5f, FontStyle.Bold), 
+            Margin = new Padding(0, (int)(5 * scale), (int)(5 * scale), (int)(5 * scale)), 
+            Cursor = Cursors.Hand 
+        };
         btnAdd.FlatAppearance.BorderSize = 0;
-        btnAdd.BackColor = UITheme.AppleBlue;
-        btnAdd.ForeColor = UITheme.CardWhite;
-        btnAdd.Font = UITheme.GetFont(11f, FontStyle.Bold);
-        btnAdd.Margin = new Padding(0, (int)(5 * scale), 0, (int)(5 * scale));
-        btnAdd.Cursor = Cursors.Hand;
         btnAdd.Click += new EventHandler(BtnAdd_Click);
 
-        top.Controls.Add(inputField, 0, 0);
-        top.Controls.Add(btnAdd, 1, 0);
+        Button btnPrint = new Button() { 
+            Text = "導出PDF", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
+            BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, 
+            Font = UITheme.GetFont(10.5f, FontStyle.Bold), 
+            Margin = new Padding(0, (int)(5 * scale), 0, (int)(5 * scale)), 
+            Cursor = Cursors.Hand 
+        };
+        btnPrint.FlatAppearance.BorderSize = 0;
+        btnPrint.Click += (s, e) => ExecuteExportPDF();
+
+        topBar.Controls.Add(lblTitle, 0, 0);
+        topBar.Controls.Add(inputField, 1, 0);
+        topBar.Controls.Add(btnAdd, 2, 0);
+        topBar.Controls.Add(btnPrint, 3, 0);
 
         // --- 任務清單容器 ---
         taskContainer = new FlowLayoutPanel();
@@ -123,8 +117,7 @@ public class App_TodoList : UserControl {
         };
 
         this.Controls.Add(taskContainer);
-        this.Controls.Add(top);
-        this.Controls.Add(header); // 加入列印標題區塊
+        this.Controls.Add(topBar); 
         taskContainer.BringToFront(); 
         
         LoadTasksFromDb();
@@ -148,7 +141,6 @@ public class App_TodoList : UserControl {
         text = text.Trim(); 
         if (string.IsNullOrEmpty(text)) return;
         
-        // 【新增需求】：手動新增時，自動在文字最前方加上年月日 yy/M/d
         if (source == "手動") {
             string datePrefix = DateTime.Now.ToString("yy/M/d") + " ";
             if (!text.StartsWith(datePrefix)) {
@@ -178,7 +170,7 @@ public class App_TodoList : UserControl {
                 var newTask = new TaskInfo { Id = newId, Text = text, Color = colorName, Note = note, Time = now, OrderIndex = orderIdx };
                 taskDataList.Insert(0, newTask);
                 
-                CreateTaskUICard(newTask, true); // Insert at top
+                CreateTaskUICard(newTask, true); 
             }
         }
     }
@@ -218,16 +210,14 @@ public class App_TodoList : UserControl {
         Color textColor = Color.FromName(task.Color);
         int startWidth = taskContainer.ClientSize.Width > (int)(20 * scale) ? taskContainer.ClientSize.Width - (int)(10 * scale) : (int)(450 * scale);
 
-        // 卡片容器 【修改需求】：卡片下邊距改為 3 * scale，讓排列變緊密
         Panel card = new Panel() {
             Width = startWidth,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, (int)(3 * scale)),
             BackColor = UITheme.CardWhite,
-            Tag = task // 將資料綁定到 UI 上
+            Tag = task 
         };
 
-        // 自訂繪製卡片圓角與邊框
         card.Paint += (s, e) => {
             UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -237,33 +227,24 @@ public class App_TodoList : UserControl {
         };
 
         TableLayoutPanel item = new TableLayoutPanel() {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 6,
-            RowCount = 1,
-            Padding = new Padding((int)(5 * scale)),
-            BackColor = Color.Transparent
+            Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 6, RowCount = 1,
+            Padding = new Padding((int)(5 * scale)), BackColor = Color.Transparent
         };
 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(35 * scale))); 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(38 * scale))); // 註
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(38 * scale))); // 轉
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(38 * scale))); // 色
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(38 * scale))); // 修
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 註
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 轉
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 色
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 修
         
-        // 完成 Checkbox
         CheckBox chk = new CheckBox() {
-            Dock = DockStyle.Fill,
-            Cursor = Cursors.Hand,
-            BackColor = Color.Transparent,
-            CheckAlign = ContentAlignment.MiddleCenter,
-            Padding = new Padding((int)(5 * scale), (int)(5 * scale), 0, 0)
+            Dock = DockStyle.Fill, Cursor = Cursors.Hand, BackColor = Color.Transparent,
+            CheckAlign = ContentAlignment.MiddleCenter, Padding = new Padding((int)(5 * scale), (int)(5 * scale), 0, 0)
         };
         
         chk.CheckedChanged += (s, e) => {
             if (chk.Checked) {
-                // 從資料庫刪除
                 using (var conn = DbHelper.GetConnection()) {
                     conn.Open();
                     using (var cmd = new SqliteCommand("DELETE FROM Tasks WHERE Id = @Id", conn)) {
@@ -276,42 +257,28 @@ public class App_TodoList : UserControl {
             }
         };
 
-        // 任務文字
         Label lbl = new Label() {
-            Text = task.Text,
-            Dock = DockStyle.Fill,
-            Font = UITheme.GetFont(10.5f),
-            ForeColor = textColor,
-            AutoSize = true,
-            Padding = new Padding(0, (int)(6 * scale), 0, (int)(6 * scale)),
-            Cursor = Cursors.SizeAll, // 提示可拖曳
-            BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleLeft
+            Text = task.Text, Dock = DockStyle.Fill, Font = UITheme.GetFont(10.5f),
+            ForeColor = textColor, AutoSize = true, Padding = new Padding(0, (int)(6 * scale), 0, (int)(6 * scale)),
+            Cursor = Cursors.SizeAll, BackColor = Color.Transparent, TextAlign = ContentAlignment.MiddleLeft
         };
 
-        // 註解按鈕
         Button btnNote = CreateCardButton("註");
         Action updateNoteStyle = () => {
             if (!string.IsNullOrEmpty(task.Note)) {
-                btnNote.BackColor = UITheme.AppleYellow; 
-                btnNote.ForeColor = UITheme.TextMain;
+                btnNote.BackColor = UITheme.AppleYellow; btnNote.ForeColor = UITheme.TextMain;
             } else {
-                btnNote.BackColor = UITheme.BgGray; 
-                btnNote.ForeColor = textColor; 
+                btnNote.BackColor = UITheme.BgGray; btnNote.ForeColor = textColor; 
             }
         };
         updateNoteStyle();
-
         btnNote.Click += (s, e) => {
             string newNote = ShowNoteEditBox(task.Text, task.Note);
             if (newNote != null) {
-                task.Note = newNote;
-                UpdateTaskInDb(task);
-                updateNoteStyle();
+                task.Note = newNote; UpdateTaskInDb(task); updateNoteStyle();
             }
         };
 
-        // 【修改需求】：將原本固定的轉移按鈕，改為動態選單「轉」，可選目標清單
         Button btnMove = CreateCardButton("轉");
         btnMove.BackColor = Color.FromArgb(235, 240, 255);
         btnMove.ForeColor = UITheme.AppleBlue;
@@ -322,7 +289,7 @@ public class App_TodoList : UserControl {
                 App_TodoList targetApp = kvp.Value;
                 menu.Items.Add($"轉至 {targetName}", null, (sender, ev) => {
                     targetApp.AddTask(task.Text, task.Color, "轉移寫入", task.Note);
-                    chk.Checked = true; // 本清單觸發刪除邏輯
+                    chk.Checked = true; 
                 });
             }
             if (menu.Items.Count > 0) {
@@ -330,43 +297,30 @@ public class App_TodoList : UserControl {
             }
         };
 
-        // 顏色切換按鈕
         Button btnColor = CreateCardButton("色");
         btnColor.Click += (s, e) => {
             int nextIdx = (Array.IndexOf(colorCycle, task.Color) + 1) % colorCycle.Length;
             task.Color = colorCycle[nextIdx];
             Color newColor = Color.FromName(task.Color);
-            
-            lbl.ForeColor = newColor;
-            btnColor.ForeColor = newColor;
-            
-            UpdateTaskInDb(task);
-            updateNoteStyle();
+            lbl.ForeColor = newColor; btnColor.ForeColor = newColor;
+            UpdateTaskInDb(task); updateNoteStyle();
         };
 
-        // 編輯按鈕
         Button btnEdit = CreateCardButton("修");
         Action triggerEdit = () => {
             string newText = ShowLargeEditBox(task.Text); 
             if (!string.IsNullOrEmpty(newText) && newText != task.Text) {
-                task.Text = newText;
-                lbl.Text = newText;
-                UpdateTaskInDb(task);
+                task.Text = newText; lbl.Text = newText; UpdateTaskInDb(task);
             }
         };
-
         lbl.MouseDoubleClick += (s, e) => triggerEdit();
         btnEdit.Click += (s, e) => triggerEdit();
         
-        // 啟動拖曳
         lbl.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) card.DoDragDrop(card, DragDropEffects.Move); };
 
-        item.Controls.Add(chk, 0, 0);
-        item.Controls.Add(lbl, 1, 0);
-        item.Controls.Add(btnNote, 2, 0);
-        item.Controls.Add(btnMove, 3, 0);
-        item.Controls.Add(btnColor, 4, 0);
-        item.Controls.Add(btnEdit, 5, 0);
+        item.Controls.Add(chk, 0, 0); item.Controls.Add(lbl, 1, 0);
+        item.Controls.Add(btnNote, 2, 0); item.Controls.Add(btnMove, 3, 0);
+        item.Controls.Add(btnColor, 4, 0); item.Controls.Add(btnEdit, 5, 0);
         
         card.Controls.Add(item); 
         
@@ -380,14 +334,9 @@ public class App_TodoList : UserControl {
 
     private Button CreateCardButton(string text) {
         Button btn = new Button() {
-            Text = text,
-            Dock = DockStyle.Fill,
-            Height = (int)(32 * scale),
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand,
-            BackColor = UITheme.BgGray,
-            Font = UITheme.GetFont(9f, FontStyle.Bold),
-            Margin = new Padding((int)(3 * scale))
+            Text = text, Dock = DockStyle.Fill, Height = (int)(32 * scale),
+            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = UITheme.BgGray,
+            Font = UITheme.GetFont(9f, FontStyle.Bold), Margin = new Padding((int)(2 * scale))
         };
         btn.FlatAppearance.BorderSize = 0;
         return btn;
@@ -436,14 +385,13 @@ public class App_TodoList : UserControl {
             
             taskContainer.Controls.SetChildIndex(draggedCard, targetIdx);
             
-            // 重新計算所有的 OrderIndex 並寫入資料庫
             using (var conn = DbHelper.GetConnection()) {
                 conn.Open();
                 using (var transaction = conn.BeginTransaction()) {
                     for (int i = 0; i < taskContainer.Controls.Count; i++) {
                         Panel card = (Panel)taskContainer.Controls[i];
                         TaskInfo task = (TaskInfo)card.Tag;
-                        task.OrderIndex = i; // 畫面由上到下，數字由小到大
+                        task.OrderIndex = i; 
                         
                         using (var cmd = new SqliteCommand("UPDATE Tasks SET OrderIndex=@Order WHERE Id=@Id", conn, transaction)) {
                             cmd.Parameters.AddWithValue("@Order", task.OrderIndex);
@@ -454,81 +402,86 @@ public class App_TodoList : UserControl {
                     transaction.Commit();
                 }
             }
-            // 同步記憶體內的 List 排序
             taskDataList = taskDataList.OrderBy(t => t.OrderIndex).ToList();
+            dragInsertIndex = -1; taskContainer.Invalidate(); 
+        }
+    }
+
+    // --- 【修改需求】無彈窗直接儲存為 PDF，並保留分段分行 ---
+    private void ExecuteExportPDF() {
+        using (SaveFileDialog sfd = new SaveFileDialog()) {
+            sfd.Filter = "PDF 檔案|*.pdf";
+            sfd.FileName = $"{titleName}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
-            dragInsertIndex = -1; 
-            taskContainer.Invalidate(); 
-        }
-    }
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                PrintDocument pd = new PrintDocument();
+                // 指定使用系統內建的微軟 PDF 虛擬印表機
+                pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
+                pd.PrinterSettings.PrintToFile = true;
+                pd.PrinterSettings.PrintFileName = sfd.FileName;
 
-    // --- 【新增需求】列印/轉存PDF功能 ---
-    private void ExecutePrint() {
-        PrintDocument pd = new PrintDocument();
-        int currentLine = 0;
-        Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
-        Font txtFont = UITheme.GetFont(12f);
-        Font noteFont = UITheme.GetFont(10f);
+                int currentLine = 0;
+                Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
+                Font txtFont = UITheme.GetFont(12f);
+                Font noteFont = UITheme.GetFont(10f);
 
-        pd.PrintPage += (sender, args) => {
-            float yPos = args.MarginBounds.Top;
-            float leftMargin = args.MarginBounds.Left;
+                pd.PrintPage += (sender, args) => {
+                    float yPos = args.MarginBounds.Top;
+                    float leftMargin = args.MarginBounds.Left;
 
-            // 印標題
-            if (currentLine == 0) {
-                args.Graphics.DrawString($"【 {titleName} 】", titleFont, Brushes.Black, leftMargin, yPos);
-                yPos += 40;
-                args.Graphics.DrawString("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), noteFont, Brushes.Gray, leftMargin, yPos);
-                yPos += 30;
-                args.Graphics.DrawLine(Pens.Black, leftMargin, yPos, args.MarginBounds.Right, yPos);
-                yPos += 15;
-            }
-
-            while (currentLine < taskDataList.Count) {
-                var t = taskDataList[currentLine];
-                string mainTxt = "□ " + t.Text;
-                SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
-                
-                if (yPos + size.Height > args.MarginBounds.Bottom) {
-                    args.HasMorePages = true; 
-                    return; 
-                }
-
-                args.Graphics.DrawString(mainTxt, txtFont, Brushes.Black, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
-                yPos += size.Height + 5; 
-
-                if (!string.IsNullOrWhiteSpace(t.Note)) {
-                    string noteTxt = "   備註: " + t.Note.Replace("\r\n", " ").Replace("\n", " ");
-                    SizeF noteSize = args.Graphics.MeasureString(noteTxt, noteFont, args.MarginBounds.Width);
-                    if (yPos + noteSize.Height > args.MarginBounds.Bottom) { 
-                        args.HasMorePages = true; 
-                        return; 
+                    if (currentLine == 0) {
+                        args.Graphics.DrawString($"【 {titleName} 】", titleFont, Brushes.Black, leftMargin, yPos);
+                        yPos += 40;
+                        args.Graphics.DrawString("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), noteFont, Brushes.Gray, leftMargin, yPos);
+                        yPos += 30;
+                        args.Graphics.DrawLine(Pens.Black, leftMargin, yPos, args.MarginBounds.Right, yPos);
+                        yPos += 15;
                     }
-                    args.Graphics.DrawString(noteTxt, noteFont, Brushes.DimGray, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, noteSize.Height));
-                    yPos += noteSize.Height + 5;
+
+                    while (currentLine < taskDataList.Count) {
+                        var t = taskDataList[currentLine];
+                        string mainTxt = "□ " + t.Text;
+                        SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
+                        
+                        if (yPos + size.Height > args.MarginBounds.Bottom) {
+                            args.HasMorePages = true; 
+                            return; 
+                        }
+
+                        args.Graphics.DrawString(mainTxt, txtFont, Brushes.Black, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
+                        yPos += size.Height + 5; 
+
+                        if (!string.IsNullOrWhiteSpace(t.Note)) {
+                            // 支援多行並加上縮排，保留使用者輸入的換行符號
+                            string notePrefix = "   備註:\n      ";
+                            string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
+                            
+                            SizeF noteSize = args.Graphics.MeasureString(formattedNote, noteFont, args.MarginBounds.Width);
+                            if (yPos + noteSize.Height > args.MarginBounds.Bottom) { 
+                                args.HasMorePages = true; 
+                                return; 
+                            }
+                            args.Graphics.DrawString(formattedNote, noteFont, Brushes.DimGray, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, noteSize.Height));
+                            yPos += noteSize.Height + 5;
+                        }
+                        
+                        yPos += 10;
+                        currentLine++;
+                    }
+                    args.HasMorePages = false;
+                };
+
+                try {
+                    pd.Print();
+                    MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                } catch (Exception ex) {
+                    MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-                
-                yPos += 10;
-                currentLine++;
-            }
-            args.HasMorePages = false;
-        };
-
-        PrintDialog pdlg = new PrintDialog();
-        pdlg.Document = pd;
-        pdlg.UseEXDialog = true; 
-
-        if (pdlg.ShowDialog() == DialogResult.OK) {
-            try {
-                pd.Print();
-                MessageBox.Show("列印 / 存檔指令已送出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            } catch (Exception ex) {
-                MessageBox.Show("列印失敗：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
 
-    // --- 對話框 UI (DPI 適應) ---
+    // --- 對話框 UI (加入 AcceptsReturn = true 支援換行) ---
     private string ShowLargeEditBox(string defaultValue) {
         Form form = new Form() { 
             Width = (int)(450 * scale), Height = (int)(280 * scale), 
@@ -537,7 +490,13 @@ public class App_TodoList : UserControl {
             BackColor = UITheme.BgGray 
         };
         Label lbl = new Label() { Text = "請輸入修正後的內容：", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(10.5f, FontStyle.Bold) };
-        TextBox txt = new TextBox() { Left = (int)(15 * scale), Top = (int)(45 * scale), Width = (int)(405 * scale), Height = (int)(120 * scale), Multiline = true, ScrollBars = ScrollBars.Vertical, Font = UITheme.GetFont(11f), Text = defaultValue };
+        
+        TextBox txt = new TextBox() { 
+            Left = (int)(15 * scale), Top = (int)(45 * scale), Width = (int)(405 * scale), Height = (int)(120 * scale), 
+            Multiline = true, AcceptsReturn = true, ScrollBars = ScrollBars.Vertical, 
+            Font = UITheme.GetFont(11f), Text = defaultValue 
+        };
+        
         Button btnOk = new Button() { Text = "確認修改", Left = (int)(300 * scale), Top = (int)(180 * scale), Width = (int)(120 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
         btnOk.FlatAppearance.BorderSize = 0;
 
@@ -558,7 +517,13 @@ public class App_TodoList : UserControl {
         };
         
         Label lbl = new Label() { Text = "【 " + taskName + " 】", Left = (int)(15 * scale), Top = (int)(15 * scale), Width = (int)(370 * scale), Height = (int)(45 * scale), Font = UITheme.GetFont(11f, FontStyle.Bold), ForeColor = UITheme.AppleBlue };
-        TextBox txt = new TextBox() { Left = (int)(15 * scale), Top = (int)(65 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, ScrollBars = ScrollBars.Vertical, Font = UITheme.GetFont(10.5f), Text = currentNote };
+        
+        TextBox txt = new TextBox() { 
+            Left = (int)(15 * scale), Top = (int)(65 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), 
+            Multiline = true, AcceptsReturn = true, ScrollBars = ScrollBars.Vertical, 
+            Font = UITheme.GetFont(10.5f), Text = currentNote 
+        };
+        
         Button btnOk = new Button() { Text = "儲存說明", Left = (int)(265 * scale), Top = (int)(280 * scale), Width = (int)(120 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
         btnOk.FlatAppearance.BorderSize = 0;
 
