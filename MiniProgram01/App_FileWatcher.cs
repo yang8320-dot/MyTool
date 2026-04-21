@@ -12,7 +12,6 @@ public class App_FileWatcher : UserControl {
     private FlowLayoutPanel cardPanel;
 
     private List<FileSystemWatcher> watchers = new List<FileSystemWatcher>();
-    // 儲存任務設定 (來源路徑當作 Key，Value 是完整設定字串陣列)
     private Dictionary<string, string[]> pathPairs = new Dictionary<string, string[]>();
     
     private Dictionary<string, DateTime> lastProcessedTimes = new Dictionary<string, DateTime>();
@@ -89,13 +88,12 @@ public class App_FileWatcher : UserControl {
 
     public Dictionary<string, string[]> GetPathPairs() { return pathPairs; }
 
-    // --- 資料庫操作 ---
     public void AddNewTask(string src, string dsts, string method, string freq, string depth, string syncMode, string retention, string customName) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "INSERT INTO FileWatchers (SourcePath, DestPath, Method, Frequency, Depth, SyncMode, Retention, CustomName) VALUES (@S, @D, @M, @F, @Dp, @Sy, @R, @C)";
             using (var cmd = new SqliteCommand(sql, conn)) {
-                cmd.Parameters.AddWithValue("@S", src); cmd.Parameters.AddWithValue("@D", dsts); // 多路徑以 | 分隔存入
+                cmd.Parameters.AddWithValue("@S", src); cmd.Parameters.AddWithValue("@D", dsts); 
                 cmd.Parameters.AddWithValue("@M", method); cmd.Parameters.AddWithValue("@F", freq);
                 cmd.Parameters.AddWithValue("@Dp", depth); cmd.Parameters.AddWithValue("@Sy", syncMode);
                 cmd.Parameters.AddWithValue("@R", retention); cmd.Parameters.AddWithValue("@C", customName);
@@ -189,7 +187,6 @@ public class App_FileWatcher : UserControl {
     private void StartWatcherFromArray(string[] p) {
         if (p.Length < 6) return;
         string src = p[0], depth = p[4], syncMode = p[5];
-        // 拆解多個備份路徑
         string[] dsts = p[1].Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
         
         try {
@@ -236,7 +233,6 @@ public class App_FileWatcher : UserControl {
         string[] taskLine = null; 
         string triggerMatchedPath = "";
 
-        // 尋找是哪一個任務被觸發
         foreach (var val in pathPairs.Values) {
             if (IsSamePath(triggerRoot, val[0])) { 
                 taskLine = val; triggerMatchedPath = val[0]; break; 
@@ -253,7 +249,6 @@ public class App_FileWatcher : UserControl {
         }
         if (taskLine == null) return; 
 
-        // 【修正問題 1】確保 E:\12 不會去抓到 E:\123 裡面的檔案
         string cleanRoot = triggerMatchedPath.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
         if (!e.FullPath.StartsWith(cleanRoot, StringComparison.OrdinalIgnoreCase)) return;
 
@@ -264,22 +259,20 @@ public class App_FileWatcher : UserControl {
             if (currentDepth > targetDepth) return;
         }
 
-        // 【修正問題 2】整理所有需要被複製過去的目標路徑
         List<string> targetFiles = new List<string>();
         string srcPath = taskLine[0];
         string[] dstPaths = taskLine[1].Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
 
         if (!IsSamePath(triggerMatchedPath, srcPath)) {
-            targetFiles.Add(Path.Combine(srcPath, relPath)); // 如果是備份區觸發雙向，加回來源區
+            targetFiles.Add(Path.Combine(srcPath, relPath));
         }
 
         foreach (string d in dstPaths) {
             if (!IsSamePath(triggerMatchedPath, d)) {
-                targetFiles.Add(Path.Combine(d, relPath)); // 複製到所有其他備份區
+                targetFiles.Add(Path.Combine(d, relPath));
             }
         }
 
-        // 避免雙向同步造成無限迴圈：檢查目標檔案是否存在且時間與大小相近
         if (taskLine[5] == "雙向同步") {
             targetFiles.RemoveAll(tf => {
                 if (File.Exists(tf)) {
@@ -314,7 +307,6 @@ public class App_FileWatcher : UserControl {
 
             bool copySuccess = false;
             
-            // 多重備份處理
             foreach (string tFile in targetFiles) {
                 for(int i = 0; i < 3; i++) { 
                     try {
@@ -354,11 +346,12 @@ public class App_FileWatcher : UserControl {
                             }
                         }
                         
+                        // 【修改需求】：通知卡片底部間距改為 3 * scale
                         Panel c = new Panel() { 
                             Name = cardUniqueName, 
                             Width = (int)(340 * scale), AutoSize = true, 
                             BackColor = UITheme.CardWhite,
-                            Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(10 * scale)) 
+                            Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(3 * scale)) 
                         };
                         
                         c.Paint += (s, ev) => {
@@ -453,9 +446,6 @@ public class App_FileWatcher : UserControl {
     }
 }
 
-// ==========================================
-// 視窗：監控設定 (支援 3 重備份)
-// ==========================================
 public class MonitorSettingsWindow : Form {
     private App_FileWatcher parentWatcher;
     private TextBox txtCustomName, txtSource, txtBackup1, txtBackup2, txtBackup3;
@@ -487,7 +477,6 @@ public class MonitorSettingsWindow : Form {
         txtCustomName = AddTextRow(mainFlow, "自訂顯示名稱：");
         txtSource = AddPathRow(mainFlow, "來源路徑：");
         
-        // 變更多重備份欄位
         txtBackup1 = AddPathRow(mainFlow, "備份路徑 1 (必填)：");
         txtBackup2 = AddPathRow(mainFlow, "備份路徑 2 (多重備份/選填)：");
         txtBackup3 = AddPathRow(mainFlow, "備份路徑 3 (多重備份/選填)：");
@@ -528,7 +517,6 @@ public class MonitorSettingsWindow : Form {
                 MessageBox.Show("來源與第一備份路徑不可為空！"); return;
             }
             
-            // 組合多個備份路徑
             var paths = new List<string> { txtBackup1.Text.Trim() };
             if (!string.IsNullOrWhiteSpace(txtBackup2.Text)) paths.Add(txtBackup2.Text.Trim());
             if (!string.IsNullOrWhiteSpace(txtBackup3.Text)) paths.Add(txtBackup3.Text.Trim());
@@ -593,9 +581,6 @@ public class MonitorSettingsWindow : Form {
     }
 }
 
-// ==========================================
-// 視窗：管理監控任務清單
-// ==========================================
 public class MonitorListWindow : Form {
     private App_FileWatcher parentWatcher;
     private FlowLayoutPanel flow;
@@ -645,12 +630,12 @@ public class MonitorListWindow : Form {
             string customName = parts[7];
             string displayName = string.IsNullOrWhiteSpace(customName) ? parts[0] : $"{customName}\n({parts[0]})";
 
-            // 格式化顯示多重路徑
             string destDisplay = parts[1].Replace("|", "\n=> ");
 
+            // 【修改需求】：清單視窗卡片底部間距改為 3 * scale
             Panel card = new Panel() { 
                 AutoSize = true, MinimumSize = new Size(0, (int)(70 * scale)), 
-                BackColor = UITheme.CardWhite, Margin = new Padding(0, 0, 0, (int)(15 * scale)), 
+                BackColor = UITheme.CardWhite, Margin = new Padding(0, 0, 0, (int)(3 * scale)), 
                 Padding = new Padding((int)(12 * scale)) 
             };
             card.Width = flow.ClientSize.Width > (int)(30 * scale) ? flow.ClientSize.Width - (int)(30 * scale) : (int)(400 * scale);
