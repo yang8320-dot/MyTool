@@ -1271,7 +1271,8 @@ public class AllTasksViewWindow : Form {
                         dataSheet.Hide(); 
 
                         List<string> times = new List<string>();
-                        for (int h = 0; h < 24; h++) {
+                        // 【修改】時間選項調整為 08:00 到 17:30
+                        for (int h = 8; h <= 17; h++) {
                             times.Add($"{h:D2}:00");
                             times.Add($"{h:D2}:30");
                         }
