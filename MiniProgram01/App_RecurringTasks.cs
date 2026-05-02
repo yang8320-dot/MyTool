@@ -1314,7 +1314,6 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
-                        // B 欄與 C 欄字串短，直接賦值
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.List("循環,單次,到期日", true);
                         valB.ShowErrorMessage = false;
@@ -1323,7 +1322,7 @@ public class AllTasksViewWindow : Form {
                         valC.List("每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期", true);
                         valC.ShowErrorMessage = false;
 
-                        // 【修復 Bug】D 欄與 E 欄跨工作表參考，直接傳入 IXLRange 物件！
+                        // 【修復】使用範圍物件 (IXLRange) 而不是字串公式，解決 Excel 開啟報錯問題
                         var dateRangeObj = dataSheet.Range(1, 2, dateArr.Length, 2);
                         var valD = mainSheet.Range($"D2:D{maxValRow}").CreateDataValidation();
                         valD.List(dateRangeObj);
@@ -1360,7 +1359,7 @@ public class AllTasksViewWindow : Form {
                             string name = r.Cell(1).GetString();
                             if (string.IsNullOrWhiteSpace(name)) continue;
 
-                            RecurringTask t = new RecurringTask();
+                            App_RecurringTasks.RecurringTask t = new App_RecurringTasks.RecurringTask();
                             t.Name = name;
                             t.TaskType = r.Cell(2).GetString();
                             t.MonthStr = r.Cell(3).GetString();
