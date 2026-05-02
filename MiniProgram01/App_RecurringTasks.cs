@@ -437,18 +437,49 @@ public class App_RecurringTasks : UserControl {
     }
 
     private string ShowNoteEditBox(string name, string current) {
-        Form f = new Form() {
-            Width = (int)(420 * scale), Height = (int)(380 * scale), 
-            Text = "編輯備註", StartPosition = FormStartPosition.CenterScreen, 
-            FormBorderStyle = FormBorderStyle.FixedDialog, TopMost = true, BackColor = UITheme.BgGray
-        };
+        Form f = new Form();
+        f.Width = (int)(420 * scale); 
+        f.Height = (int)(380 * scale); 
+        f.Text = "編輯備註"; 
+        f.StartPosition = FormStartPosition.CenterScreen; 
+        f.FormBorderStyle = FormBorderStyle.FixedDialog; 
+        f.TopMost = true; 
+        f.BackColor = UITheme.BgGray;
 
-        Label lbl = new Label() { Text = "【" + name + "】", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(11f, FontStyle.Bold) };
-        TextBox txt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, AcceptsReturn = true, Text = current, Font = UITheme.GetFont(10.5f) };
-        Button btn = new Button() { Text = "儲存", Left = (int)(285 * scale), Top = (int)(280 * scale), Width = (int)(100 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold) };
+        Label lbl = new Label();
+        lbl.Text = "【" + name + "】";
+        lbl.Left = (int)(15 * scale);
+        lbl.Top = (int)(15 * scale);
+        lbl.AutoSize = true;
+        lbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        
+        TextBox txt = new TextBox();
+        txt.Left = (int)(15 * scale);
+        txt.Top = (int)(50 * scale);
+        txt.Width = (int)(370 * scale);
+        txt.Height = (int)(200 * scale);
+        txt.Multiline = true;
+        txt.AcceptsReturn = true;
+        txt.Text = current;
+        txt.Font = UITheme.GetFont(10.5f);
+        
+        Button btn = new Button();
+        btn.Text = "儲存";
+        btn.Left = (int)(285 * scale);
+        btn.Top = (int)(280 * scale);
+        btn.Width = (int)(100 * scale);
+        btn.Height = (int)(40 * scale);
+        btn.DialogResult = DialogResult.OK;
+        btn.FlatStyle = FlatStyle.Flat;
+        btn.BackColor = UITheme.AppleBlue;
+        btn.ForeColor = UITheme.CardWhite;
+        btn.Font = UITheme.GetFont(10f, FontStyle.Bold);
         btn.FlatAppearance.BorderSize = 0;
 
-        f.Controls.AddRange(new Control[] { lbl, txt, btn });
+        f.Controls.Add(lbl);
+        f.Controls.Add(txt);
+        f.Controls.Add(btn);
+
         return f.ShowDialog() == DialogResult.OK ? txt.Text : null;
     }
 }
@@ -692,23 +723,57 @@ public class AllTasksViewWindow : Form {
         this.BackColor = UITheme.BgGray;
         this.TopMost = true; 
 
-        TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(70 * scale), BackColor = UITheme.CardWhite, ColumnCount = 4 };
+        TableLayoutPanel header = new TableLayoutPanel();
+        header.Dock = DockStyle.Top;
+        header.Height = (int)(70 * scale);
+        header.BackColor = UITheme.CardWhite;
+        header.ColumnCount = 4;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
 
-        Label lbl = new Label() { Text = "週期任務排程總覽", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding((int)(20 * scale),0,0,0), Font = UITheme.GetFont(16f, FontStyle.Bold), ForeColor = UITheme.TextMain };
+        Label lbl = new Label();
+        lbl.Text = "週期任務排程總覽";
+        lbl.Dock = DockStyle.Fill;
+        lbl.TextAlign = ContentAlignment.MiddleLeft;
+        lbl.Padding = new Padding((int)(20 * scale),0,0,0);
+        lbl.Font = UITheme.GetFont(16f, FontStyle.Bold);
+        lbl.ForeColor = UITheme.TextMain;
         
-        Button btnImport = new Button() { Text = "匯入 Excel", Dock = DockStyle.Fill, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale)), Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnImport = new Button();
+        btnImport.Text = "匯入 Excel";
+        btnImport.Dock = DockStyle.Fill;
+        btnImport.BackColor = UITheme.AppleBlue;
+        btnImport.ForeColor = UITheme.CardWhite;
+        btnImport.FlatStyle = FlatStyle.Flat;
+        btnImport.Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale));
+        btnImport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnImport.Cursor = Cursors.Hand;
         btnImport.FlatAppearance.BorderSize = 0;
         btnImport.Click += (s, e) => ExecuteImportExcel();
 
-        Button btnExport = new Button() { Text = "匯出 Excel", Dock = DockStyle.Fill, BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale)), Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnExport = new Button();
+        btnExport.Text = "匯出 Excel";
+        btnExport.Dock = DockStyle.Fill;
+        btnExport.BackColor = UITheme.AppleGreen;
+        btnExport.ForeColor = UITheme.CardWhite;
+        btnExport.FlatStyle = FlatStyle.Flat;
+        btnExport.Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale));
+        btnExport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnExport.Cursor = Cursors.Hand;
         btnExport.FlatAppearance.BorderSize = 0;
         btnExport.Click += (s, e) => ExecuteExportExcel();
 
-        Button btnPrint = new Button() { Text = "導出 PDF", Dock = DockStyle.Fill, BackColor = Color.Gray, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(15*scale), (int)(15*scale)), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnPrint = new Button();
+        btnPrint.Text = "導出 PDF";
+        btnPrint.Dock = DockStyle.Fill;
+        btnPrint.BackColor = Color.Gray;
+        btnPrint.ForeColor = UITheme.CardWhite;
+        btnPrint.FlatStyle = FlatStyle.Flat;
+        btnPrint.Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(15*scale), (int)(15*scale));
+        btnPrint.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        btnPrint.Cursor = Cursors.Hand;
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
@@ -718,12 +783,27 @@ public class AllTasksViewWindow : Form {
         header.Controls.Add(btnPrint, 3, 0); 
         this.Controls.Add(header);
 
-        flow = new FlowLayoutPanel() { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding((int)(20 * scale)), FlowDirection = FlowDirection.TopDown, WrapContents = false };
+        flow = new FlowLayoutPanel();
+        flow.Dock = DockStyle.Fill;
+        flow.AutoScroll = true;
+        flow.Padding = new Padding((int)(20 * scale));
+        flow.FlowDirection = FlowDirection.TopDown;
+        flow.WrapContents = false;
+        
         flow.Resize += (s, e) => { 
             int w = flow.ClientSize.Width - (int)(40 * scale); 
-            if (w > 0) foreach (Control c in flow.Controls) if (c is Panel) c.Width = w;
+            if (w > 0) {
+                foreach (Control c in flow.Controls) {
+                    if (c is Panel) {
+                        c.Width = w;
+                    }
+                }
+            }
         };
-        this.Controls.Add(flow); flow.BringToFront(); RefreshData();
+        
+        this.Controls.Add(flow);
+        flow.BringToFront();
+        RefreshData();
     }
 
     private void ExecuteExportExcel() {
@@ -764,21 +844,20 @@ public class AllTasksViewWindow : Form {
 
                     // --- 欄寬設定 ---
                     sheet.Rows.RowHeight = 25;           
-                    sheet.Columns[1].ColumnWidth = 35; // 【修改需求】：任務名稱寬改 35
+                    sheet.Columns[1].ColumnWidth = 35; // 任務名稱寬改 35
                     for (int i = 2; i <= 6; i++) {
                         sheet.Columns[i].ColumnWidth = 12; 
                     }
 
                     // --- 加入 Excel 資料驗證 (下拉選單) ---
-                    // 為了預留未來新增的空間，將驗證範圍設定到第 500 列 (或根據當前資料列數動態增加)
                     int maxValRow = row > 100 ? row + 100 : 500;
 
                     // B欄：任務類型
                     dynamic rangeB = sheet.Range[$"B2:B{maxValRow}"];
                     rangeB.Validation.Delete();
-                    rangeB.Validation.Add(3, 1, 1, "循環,單次,到期日"); // 3=xlValidateList
+                    rangeB.Validation.Add(3, 1, 1, "循環,單次,到期日"); 
                     rangeB.Validation.InCellDropdown = true;
-                    rangeB.Validation.ShowError = false; // 允許手動輸入不報錯
+                    rangeB.Validation.ShowError = false; 
 
                     // C欄：週期類型
                     dynamic rangeC = sheet.Range[$"C2:C{maxValRow}"];
@@ -787,15 +866,15 @@ public class AllTasksViewWindow : Form {
                     rangeC.Validation.InCellDropdown = true;
                     rangeC.Validation.ShowError = false;
 
-                    // D欄：指定日期 (包含所有可能的常見選項)
+                    // D欄：指定日期
                     dynamic rangeD = sheet.Range[$"D2:D{maxValRow}"];
                     rangeD.Validation.Delete();
                     string dateOptions = "每日,一,二,三,四,五,六,日,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,月底";
                     rangeD.Validation.Add(3, 1, 1, dateOptions);
                     rangeD.Validation.InCellDropdown = true;
-                    rangeD.Validation.ShowError = false; // 重要：因為使用者可能會手動輸入特定日期 (yyyy-MM-dd)
+                    rangeD.Validation.ShowError = false; 
 
-                    // E欄：觸發時間 (自動產生 00:00 ~ 23:30 的每半小時區間)
+                    // E欄：觸發時間
                     dynamic rangeE = sheet.Range[$"E2:E{maxValRow}"];
                     rangeE.Validation.Delete();
                     List<string> times = new List<string>();
@@ -806,7 +885,7 @@ public class AllTasksViewWindow : Form {
                     string timeOptions = string.Join(",", times);
                     rangeE.Validation.Add(3, 1, 1, timeOptions);
                     rangeE.Validation.InCellDropdown = true;
-                    rangeE.Validation.ShowError = false; // 允許手動輸入例如 08:15 這樣不在清單內的時間
+                    rangeE.Validation.ShowError = false; 
 
                     workbook.SaveAs(sfd.FileName);
                     MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -974,7 +1053,12 @@ public class AllTasksViewWindow : Form {
     private void AddGroup(string header, List<App_RecurringTasks.RecurringTask> sub) {
         if (sub.Count == 0) return;
 
-        Panel gb = new Panel() { AutoSize = true, Width = flow.ClientSize.Width - (int)(40 * scale), Margin = new Padding((int)(10 * scale), (int)(10 * scale), (int)(10 * scale), (int)(25 * scale)), Padding = new Padding((int)(15 * scale)), BackColor = UITheme.CardWhite };
+        Panel gb = new Panel();
+        gb.AutoSize = true;
+        gb.Width = flow.ClientSize.Width - (int)(40 * scale);
+        gb.Margin = new Padding((int)(10 * scale), (int)(10 * scale), (int)(10 * scale), (int)(25 * scale));
+        gb.Padding = new Padding((int)(15 * scale));
+        gb.BackColor = UITheme.CardWhite;
         
         gb.Paint += (s, e) => {
             UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, gb.Width - 1, gb.Height - 1), (int)(12 * scale), UITheme.CardWhite);
@@ -984,16 +1068,152 @@ public class AllTasksViewWindow : Form {
             }
         };
 
-        FlowLayoutPanel inner = new FlowLayoutPanel() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, BackColor = Color.Transparent };
+        FlowLayoutPanel inner = new FlowLayoutPanel();
+        inner.Dock = DockStyle.Fill;
+        inner.FlowDirection = FlowDirection.TopDown;
+        inner.WrapContents = false;
+        inner.AutoSize = true;
+        inner.BackColor = Color.Transparent;
         
-        Label titleLbl = new Label() { Text = header, Font = UITheme.GetFont(13f, FontStyle.Bold), ForeColor = UITheme.AppleBlue, AutoSize = true, Margin = new Padding(0, 0, 0, (int)(15 * scale)) };
+        Label titleLbl = new Label();
+        titleLbl.Text = header;
+        titleLbl.Font = UITheme.GetFont(13f, FontStyle.Bold);
+        titleLbl.ForeColor = UITheme.AppleBlue;
+        titleLbl.AutoSize = true;
+        titleLbl.Margin = new Padding(0, 0, 0, (int)(15 * scale));
+        
         inner.Controls.Add(titleLbl);
 
         foreach (var t in sub) {
-            TableLayoutPanel row = new TableLayoutPanel() { Width = gb.Width - (int)(40 * scale), AutoSize = true, ColumnCount = 4, Margin = new Padding(0,0,0,(int)(10 * scale)) };
+            TableLayoutPanel row = new TableLayoutPanel();
+            row.Width = gb.Width - (int)(40 * scale);
+            row.AutoSize = true;
+            row.ColumnCount = 4;
+            row.Margin = new Padding(0, 0, 0, (int)(10 * scale));
+            
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(45 * scale))); 
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(45 * scale)));
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(45 * scale))); 
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-            Button bE = new Button() { Text = "調", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleBlue, For
+            Button bE = new Button();
+            bE.Text = "調";
+            bE.Height = (int)(32 * scale);
+            bE.Dock = DockStyle.Top;
+            bE.BackColor = UITheme.AppleBlue;
+            bE.ForeColor = UITheme.CardWhite;
+            bE.FlatStyle = FlatStyle.Flat;
+            bE.Font = UITheme.GetFont(9f, FontStyle.Bold);
+            bE.Cursor = Cursors.Hand;
+            bE.FlatAppearance.BorderSize = 0;
+            bE.Click += (s, e) => { 
+                new EditRecurringTaskWindow(parentControl, t).ShowDialog(); 
+                RefreshData(); 
+            };
+
+            Button bD = new Button();
+            bD.Text = "✕";
+            bD.Height = (int)(32 * scale);
+            bD.Dock = DockStyle.Top;
+            bD.BackColor = UITheme.AppleRed;
+            bD.ForeColor = UITheme.CardWhite;
+            bD.FlatStyle = FlatStyle.Flat;
+            bD.Font = UITheme.GetFont(9f, FontStyle.Bold);
+            bD.Cursor = Cursors.Hand;
+            bD.FlatAppearance.BorderSize = 0;
+            bD.Click += (s, e) => { 
+                if (MessageBox.Show("確定移除？", "確認", MessageBoxButtons.OKCancel) == DialogResult.OK) { 
+                    parentControl.DeleteTask(t); 
+                    RefreshData(); 
+                } 
+            };
+
+            Button bN = new Button();
+            bN.Text = "註";
+            bN.Height = (int)(32 * scale);
+            bN.Dock = DockStyle.Top;
+            bN.FlatStyle = FlatStyle.Flat;
+            bN.Font = UITheme.GetFont(9f, FontStyle.Bold);
+            bN.Cursor = Cursors.Hand;
+            bN.FlatAppearance.BorderSize = 0;
+            
+            if (!string.IsNullOrEmpty(t.Note)) { 
+                bN.BackColor = UITheme.AppleYellow; 
+                bN.ForeColor = Color.Black; 
+            } else { 
+                bN.BackColor = UITheme.BgGray; 
+                bN.ForeColor = UITheme.TextSub; 
+            }
+            
+            bN.Click += (s, e) => { 
+                Form nf = new Form();
+                nf.Width = (int)(420 * scale);
+                nf.Height = (int)(380 * scale);
+                nf.Text = "任務備註";
+                nf.StartPosition = FormStartPosition.CenterScreen;
+                nf.TopMost = true;
+                nf.BackColor = UITheme.BgGray;
+
+                TextBox nt = new TextBox();
+                nt.Left = (int)(15 * scale);
+                nt.Top = (int)(50 * scale);
+                nt.Width = (int)(370 * scale);
+                nt.Height = (int)(200 * scale);
+                nt.Multiline = true;
+                nt.AcceptsReturn = true;
+                nt.Text = t.Note;
+                nt.Font = UITheme.GetFont(10.5f);
+
+                Button nb = new Button();
+                nb.Text = "儲存";
+                nb.Left = (int)(285 * scale);
+                nb.Top = (int)(280 * scale);
+                nb.Width = (int)(100 * scale);
+                nb.Height = (int)(40 * scale);
+                nb.DialogResult = DialogResult.OK;
+                nb.FlatStyle = FlatStyle.Flat;
+                nb.BackColor = UITheme.AppleBlue;
+                nb.ForeColor = UITheme.CardWhite;
+                nb.Font = UITheme.GetFont(10f, FontStyle.Bold);
+                nb.FlatAppearance.BorderSize = 0;
+
+                Label nLbl = new Label();
+                nLbl.Text = "【" + t.Name + "】";
+                nLbl.Left = (int)(15 * scale);
+                nLbl.Top = (int)(15 * scale);
+                nLbl.AutoSize = true;
+                nLbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
+
+                nf.Controls.Add(nLbl);
+                nf.Controls.Add(nt);
+                nf.Controls.Add(nb);
+
+                if (nf.ShowDialog() == DialogResult.OK) { 
+                    t.Note = nt.Text; 
+                    parentControl.UpdateTaskDb(t); 
+                    RefreshData(); 
+                }
+            };
+
+            string typeTag = $"[{t.TaskType}] ";
+            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
+
+            Label rowLbl = new Label();
+            rowLbl.Text = typeTag + timeInfo + "  " + t.Name;
+            rowLbl.Dock = DockStyle.Fill;
+            rowLbl.TextAlign = ContentAlignment.MiddleLeft;
+            rowLbl.AutoSize = true;
+            rowLbl.Padding = new Padding(0, (int)(8 * scale), 0, (int)(8 * scale));
+            rowLbl.Font = UITheme.GetFont(10.5f);
+
+            row.Controls.Add(bE, 0, 0); 
+            row.Controls.Add(bD, 1, 0); 
+            row.Controls.Add(bN, 2, 0);
+            row.Controls.Add(rowLbl, 3, 0);
+            
+            inner.Controls.Add(row);
+        }
+        gb.Controls.Add(inner); 
+        flow.Controls.Add(gb);
+    }
+}
