@@ -762,14 +762,54 @@ public class AllTasksViewWindow : Form {
                         row++;
                     }
 
+                    // --- 欄寬設定 ---
                     sheet.Rows.RowHeight = 25;           
-                    sheet.Columns[1].ColumnWidth = 25;   
+                    sheet.Columns[1].ColumnWidth = 35; // 【修改需求】：任務名稱寬改 35
                     for (int i = 2; i <= 6; i++) {
                         sheet.Columns[i].ColumnWidth = 12; 
                     }
 
+                    // --- 加入 Excel 資料驗證 (下拉選單) ---
+                    // 為了預留未來新增的空間，將驗證範圍設定到第 500 列 (或根據當前資料列數動態增加)
+                    int maxValRow = row > 100 ? row + 100 : 500;
+
+                    // B欄：任務類型
+                    dynamic rangeB = sheet.Range[$"B2:B{maxValRow}"];
+                    rangeB.Validation.Delete();
+                    rangeB.Validation.Add(3, 1, 1, "循環,單次,到期日"); // 3=xlValidateList
+                    rangeB.Validation.InCellDropdown = true;
+                    rangeB.Validation.ShowError = false; // 允許手動輸入不報錯
+
+                    // C欄：週期類型
+                    dynamic rangeC = sheet.Range[$"C2:C{maxValRow}"];
+                    rangeC.Validation.Delete();
+                    rangeC.Validation.Add(3, 1, 1, "每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期");
+                    rangeC.Validation.InCellDropdown = true;
+                    rangeC.Validation.ShowError = false;
+
+                    // D欄：指定日期 (包含所有可能的常見選項)
+                    dynamic rangeD = sheet.Range[$"D2:D{maxValRow}"];
+                    rangeD.Validation.Delete();
+                    string dateOptions = "每日,一,二,三,四,五,六,日,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,月底";
+                    rangeD.Validation.Add(3, 1, 1, dateOptions);
+                    rangeD.Validation.InCellDropdown = true;
+                    rangeD.Validation.ShowError = false; // 重要：因為使用者可能會手動輸入特定日期 (yyyy-MM-dd)
+
+                    // E欄：觸發時間 (自動產生 00:00 ~ 23:30 的每半小時區間)
+                    dynamic rangeE = sheet.Range[$"E2:E{maxValRow}"];
+                    rangeE.Validation.Delete();
+                    List<string> times = new List<string>();
+                    for (int h = 0; h < 24; h++) {
+                        times.Add($"{h:D2}:00");
+                        times.Add($"{h:D2}:30");
+                    }
+                    string timeOptions = string.Join(",", times);
+                    rangeE.Validation.Add(3, 1, 1, timeOptions);
+                    rangeE.Validation.InCellDropdown = true;
+                    rangeE.Validation.ShowError = false; // 允許手動輸入例如 08:15 這樣不在清單內的時間
+
                     workbook.SaveAs(sfd.FileName);
-                    MessageBox.Show("Excel 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 } catch (Exception ex) {
                     MessageBox.Show("匯出時發生錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 } finally {
@@ -956,38 +996,4 @@ public class AllTasksViewWindow : Form {
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(45 * scale))); 
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-            Button bE = new Button() { Text = "調", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
-            bE.FlatAppearance.BorderSize = 0;
-            bE.Click += (s, e) => { 
-                new EditRecurringTaskWindow(parentControl, t).ShowDialog(); 
-                RefreshData(); 
-            };
-
-            Button bD = new Button() { Text = "✕", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleRed, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
-            bD.FlatAppearance.BorderSize = 0;
-            bD.Click += (s, e) => { if (MessageBox.Show("確定移除？", "確認", MessageBoxButtons.OKCancel) == DialogResult.OK) { parentControl.DeleteTask(t); RefreshData(); } };
-
-            Button bN = new Button() { Text = "註", Height = (int)(32 * scale), Dock = DockStyle.Top, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
-            bN.FlatAppearance.BorderSize = 0;
-            if (!string.IsNullOrEmpty(t.Note)) { bN.BackColor = UITheme.AppleYellow; bN.ForeColor = Color.Black; } 
-            else { bN.BackColor = UITheme.BgGray; bN.ForeColor = UITheme.TextSub; }
-            
-            bN.Click += (s, e) => { 
-                Form nf = new Form() { Width = (int)(420 * scale), Height = (int)(380 * scale), Text = "任務備註", StartPosition = FormStartPosition.CenterScreen, TopMost = true, BackColor = UITheme.BgGray };
-                TextBox nt = new TextBox() { Left = (int)(15 * scale), Top = (int)(50 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), Multiline = true, AcceptsReturn = true, Text = t.Note, Font = UITheme.GetFont(10.5f) };
-                Button nb = new Button() { Text = "儲存", Left = (int)(285 * scale), Top = (int)(280 * scale), Width = (int)(100 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold) };
-                nb.FlatAppearance.BorderSize = 0;
-                nf.Controls.AddRange(new Control[] { new Label() { Text = "【" + t.Name + "】", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(11f, FontStyle.Bold) }, nt, nb });
-                if(nf.ShowDialog() == DialogResult.OK) { t.Note = nt.Text; parentControl.UpdateTaskDb(t); RefreshData(); }
-            };
-
-            string typeTag = $"[{t.TaskType}] ";
-            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
-
-            row.Controls.Add(bE, 0, 0); row.Controls.Add(bD, 1, 0); row.Controls.Add(bN, 2, 0);
-            row.Controls.Add(new Label() { Text = typeTag + timeInfo + "  " + t.Name, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoSize = true, Padding = new Padding(0,(int)(8 * scale),0,(int)(8 * scale)), Font = UITheme.GetFont(10.5f) }, 3, 0);
-            inner.Controls.Add(row);
-        }
-        gb.Controls.Add(inner); flow.Controls.Add(gb);
-    }
-}
+            Button bE = new Button() { Text = "調", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleBlue, For
