@@ -64,14 +64,23 @@ public class App_RecurringTasks : UserControl {
         lblTitle.ForeColor = UITheme.TextMain;
 
         Button btnViewAll = CreateHeaderButton("全部檢視", UITheme.CardWhite, UITheme.AppleBlue);
-        btnViewAll.Click += (s, e) => { new AllTasksViewWindow(this).Show(); }; 
+        btnViewAll.Click += (s, e) => { 
+            AllTasksViewWindow win = new AllTasksViewWindow(this);
+            win.Show(); 
+        }; 
 
         Button btnAdd = CreateHeaderButton("新增任務", UITheme.AppleBlue, UITheme.CardWhite);
-        btnAdd.Click += (s, e) => { new AddRecurringTaskWindow(this).Show(); };
+        btnAdd.Click += (s, e) => { 
+            AddRecurringTaskWindow win = new AddRecurringTaskWindow(this);
+            win.Show(); 
+        };
 
         Button btnSet = CreateHeaderButton("設定", Color.Gainsboro, UITheme.TextMain);
         btnSet.Margin = new Padding((int)(2 * scale), (int)(8 * scale), (int)(8 * scale), (int)(8 * scale));
-        btnSet.Click += (s, e) => { new RecurringSettingsWindow(this).Show(); };
+        btnSet.Click += (s, e) => { 
+            RecurringSettingsWindow win = new RecurringSettingsWindow(this);
+            win.Show(); 
+        };
 
         header.Controls.Add(lblTitle, 0, 0);
         header.Controls.Add(btnViewAll, 1, 0);
@@ -91,7 +100,9 @@ public class App_RecurringTasks : UserControl {
             if (safeWidth > 0) {
                 taskPanel.SuspendLayout();
                 foreach (Control c in taskPanel.Controls) {
-                    if (c is Panel) c.Width = safeWidth;
+                    if (c is Panel) {
+                        c.Width = safeWidth;
+                    }
                 }
                 taskPanel.ResumeLayout(true);
             }
@@ -141,7 +152,12 @@ public class App_RecurringTasks : UserControl {
         digestType = DbHelper.GetSetting("Recur_DigestType", "不提醒");
         digestTimeStr = DbHelper.GetSetting("Recur_DigestTime", "08:00");
         lastDigestDate = DbHelper.GetSetting("Recur_LastDigest", "");
-        advanceDays = int.Parse(DbHelper.GetSetting("Recur_AdvanceDays", "0"));
+        
+        string advStr = DbHelper.GetSetting("Recur_AdvanceDays", "0");
+        int parsedAdv = 0;
+        int.TryParse(advStr, out parsedAdv);
+        advanceDays = parsedAdv;
+        
         scanFrequency = DbHelper.GetSetting("Recur_ScanFreq", "10分鐘");
     }
 
@@ -161,14 +177,18 @@ public class App_RecurringTasks : UserControl {
             using (var cmd = new SqliteCommand(sql, conn)) {
                 using (var reader = cmd.ExecuteReader()) {
                     while (reader.Read()) {
-                        tasks.Add(new RecurringTask {
-                            Id = reader.GetInt32(0), Name = reader.GetString(1),
-                            MonthStr = reader.GetString(2), DateStr = reader.GetString(3),
-                            TimeStr = reader.GetString(4), TaskType = reader.GetString(5),
-                            Note = reader.IsDBNull(6) ? "" : reader.GetString(6),
-                            LastTriggeredDate = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                            OrderIndex = reader.GetInt32(8)
-                        });
+                        RecurringTask rt = new RecurringTask();
+                        rt.Id = reader.GetInt32(0);
+                        rt.Name = reader.GetString(1);
+                        rt.MonthStr = reader.GetString(2);
+                        rt.DateStr = reader.GetString(3);
+                        rt.TimeStr = reader.GetString(4);
+                        rt.TaskType = reader.GetString(5);
+                        rt.Note = reader.IsDBNull(6) ? "" : reader.GetString(6);
+                        rt.LastTriggeredDate = reader.IsDBNull(7) ? "" : reader.GetString(7);
+                        rt.OrderIndex = reader.GetInt32(8);
+                        
+                        tasks.Add(rt);
                     }
                 }
             }
@@ -217,7 +237,10 @@ public class App_RecurringTasks : UserControl {
             btnEdit.FlatStyle = FlatStyle.Flat;
             btnEdit.Font = UITheme.GetFont(9f, FontStyle.Bold);
             btnEdit.FlatAppearance.BorderSize = 0;
-            btnEdit.Click += (s, e) => { new EditRecurringTaskWindow(this, t).Show(); };
+            btnEdit.Click += (s, e) => { 
+                EditRecurringTaskWindow win = new EditRecurringTaskWindow(this, t);
+                win.Show(); 
+            };
 
             Button btnDel = new Button();
             btnDel.Text = "✕";
@@ -229,7 +252,10 @@ public class App_RecurringTasks : UserControl {
             btnDel.Font = UITheme.GetFont(9f, FontStyle.Bold);
             btnDel.FlatAppearance.BorderSize = 0;
             btnDel.Click += (s, e) => { 
-                if (MessageBox.Show("確定移除此週期任務？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) { DeleteTask(t); }
+                DialogResult res = MessageBox.Show("確定移除此週期任務？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                if (res == DialogResult.OK) { 
+                    DeleteTask(t); 
+                }
             };
 
             Button btnNote = new Button();
@@ -239,11 +265,22 @@ public class App_RecurringTasks : UserControl {
             btnNote.FlatStyle = FlatStyle.Flat;
             btnNote.Font = UITheme.GetFont(9f, FontStyle.Bold);
             btnNote.FlatAppearance.BorderSize = 0;
-            btnNote.BackColor = string.IsNullOrEmpty(t.Note) ? UITheme.BgGray : UITheme.AppleYellow;
-            btnNote.ForeColor = string.IsNullOrEmpty(t.Note) ? UITheme.TextMain : Color.Black;
+            
+            if (string.IsNullOrEmpty(t.Note)) {
+                btnNote.BackColor = UITheme.BgGray;
+                btnNote.ForeColor = UITheme.TextMain;
+            } else {
+                btnNote.BackColor = UITheme.AppleYellow;
+                btnNote.ForeColor = Color.Black;
+            }
+            
             btnNote.Click += (s, e) => { 
                 string n = ShowNoteEditBox(t.Name, t.Note); 
-                if (n != null) { t.Note = n; UpdateTaskInDb(t); RefreshUI(); } 
+                if (n != null) { 
+                    t.Note = n; 
+                    UpdateTaskInDb(t); 
+                    RefreshUI(); 
+                } 
             };
 
             string typeTag = $"[{t.TaskType}] ";
@@ -269,15 +306,23 @@ public class App_RecurringTasks : UserControl {
     }
 
     public void AddNewTask(string name, string month, string date, string time, string note, string type) {
-        int orderIdx = tasks.Count > 0 ? tasks.Max(t => t.OrderIndex) + 1 : 0;
+        int orderIdx = 0;
+        if (tasks.Count > 0) {
+            orderIdx = tasks.Max(t => t.OrderIndex) + 1;
+        }
+        
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "INSERT INTO RecurringTasks (Name, MonthStr, DateStr, TimeStr, TaskType, Note, LastTriggeredDate, OrderIndex) VALUES (@N, @M, @D, @T, @Ty, @No, '', @O)";
             using (var cmd = new SqliteCommand(sql, conn)) {
-                cmd.Parameters.AddWithValue("@N", name); cmd.Parameters.AddWithValue("@M", month);
-                cmd.Parameters.AddWithValue("@D", date); cmd.Parameters.AddWithValue("@T", time);
-                cmd.Parameters.AddWithValue("@Ty", type); cmd.Parameters.AddWithValue("@No", note);
-                cmd.Parameters.AddWithValue("@O", orderIdx); cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@N", name); 
+                cmd.Parameters.AddWithValue("@M", month);
+                cmd.Parameters.AddWithValue("@D", date); 
+                cmd.Parameters.AddWithValue("@T", time);
+                cmd.Parameters.AddWithValue("@Ty", type); 
+                cmd.Parameters.AddWithValue("@No", note);
+                cmd.Parameters.AddWithValue("@O", orderIdx); 
+                cmd.ExecuteNonQuery();
             }
         }
         LoadTasksFromDb();
@@ -297,7 +342,9 @@ public class App_RecurringTasks : UserControl {
                         cmd.Parameters.AddWithValue("@N", t.Name);
                         cmd.Parameters.AddWithValue("@M", t.MonthStr);
                         var result = cmd.ExecuteScalar();
-                        if (result != null) existingId = Convert.ToInt32(result);
+                        if (result != null) {
+                            existingId = Convert.ToInt32(result);
+                        }
                     }
 
                     if (existingId != -1) {
@@ -339,18 +386,26 @@ public class App_RecurringTasks : UserControl {
         return new Tuple<int, int>(addedCount, updatedCount);
     }
 
-    public void UpdateTaskDb(RecurringTask t) { UpdateTaskInDb(t); LoadTasksFromDb(); }
+    public void UpdateTaskDb(RecurringTask t) { 
+        UpdateTaskInDb(t); 
+        LoadTasksFromDb(); 
+    }
 
     private void UpdateTaskInDb(RecurringTask t) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "UPDATE RecurringTasks SET Name=@N, MonthStr=@M, DateStr=@D, TimeStr=@T, TaskType=@Ty, Note=@No, LastTriggeredDate=@L, OrderIndex=@O WHERE Id=@Id";
             using (var cmd = new SqliteCommand(sql, conn)) {
-                cmd.Parameters.AddWithValue("@N", t.Name); cmd.Parameters.AddWithValue("@M", t.MonthStr);
-                cmd.Parameters.AddWithValue("@D", t.DateStr); cmd.Parameters.AddWithValue("@T", t.TimeStr);
-                cmd.Parameters.AddWithValue("@Ty", t.TaskType); cmd.Parameters.AddWithValue("@No", t.Note);
-                cmd.Parameters.AddWithValue("@L", t.LastTriggeredDate ?? ""); cmd.Parameters.AddWithValue("@O", t.OrderIndex);
-                cmd.Parameters.AddWithValue("@Id", t.Id); cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@N", t.Name); 
+                cmd.Parameters.AddWithValue("@M", t.MonthStr);
+                cmd.Parameters.AddWithValue("@D", t.DateStr); 
+                cmd.Parameters.AddWithValue("@T", t.TimeStr);
+                cmd.Parameters.AddWithValue("@Ty", t.TaskType); 
+                cmd.Parameters.AddWithValue("@No", t.Note);
+                cmd.Parameters.AddWithValue("@L", t.LastTriggeredDate ?? ""); 
+                cmd.Parameters.AddWithValue("@O", t.OrderIndex);
+                cmd.Parameters.AddWithValue("@Id", t.Id); 
+                cmd.ExecuteNonQuery();
             }
         }
     }
@@ -359,20 +414,30 @@ public class App_RecurringTasks : UserControl {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             using (var cmd = new SqliteCommand("DELETE FROM RecurringTasks WHERE Id=@Id", conn)) {
-                cmd.Parameters.AddWithValue("@Id", task.Id); cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@Id", task.Id); 
+                cmd.ExecuteNonQuery();
             }
         }
         LoadTasksFromDb();
     }
 
     public void UpdateGlobalSettings(string dType, string dTime, int aDays, string sFreq) {
-        digestType = dType; digestTimeStr = dTime; advanceDays = aDays; scanFrequency = sFreq;
-        checkTimer.Enabled = false; checkTimer.Interval = GetTimerInterval(sFreq); checkTimer.Enabled = true;
-        SaveSettingsToDb(); MessageBox.Show("設定儲存成功！");
+        digestType = dType; 
+        digestTimeStr = dTime; 
+        advanceDays = aDays; 
+        scanFrequency = sFreq;
+        
+        checkTimer.Enabled = false; 
+        checkTimer.Interval = GetTimerInterval(sFreq); 
+        checkTimer.Enabled = true;
+        
+        SaveSettingsToDb(); 
+        MessageBox.Show("設定儲存成功！");
     }
 
     private void CheckTasks() {
-        DateTime now = DateTime.Now; bool needsRefresh = false;
+        DateTime now = DateTime.Now; 
+        bool needsRefresh = false;
         List<RecurringTask> toRemove = new List<RecurringTask>();
 
         foreach (var t in tasks) {
@@ -385,30 +450,48 @@ public class App_RecurringTasks : UserControl {
                         string prefix = advanceDays > 0 ? $"[預排-{target:MM/dd}] " : "";
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
-                        t.LastTriggeredDate = targetDateStr; UpdateTaskInDb(t);
+                        t.LastTriggeredDate = targetDateStr; 
+                        UpdateTaskInDb(t);
                         parentForm.AlertTab(1); 
                         
-                        if (t.TaskType == "單次" || t.TaskType == "到期日") toRemove.Add(t);
+                        if (t.TaskType == "單次" || t.TaskType == "到期日") {
+                            toRemove.Add(t);
+                        }
                     }
                 }
             }
         }
 
-        if (toRemove.Count > 0) { foreach (var r in toRemove) DeleteTask(r); needsRefresh = true; }
-        if (needsRefresh) this.Invoke(new Action(() => LoadTasksFromDb()));
+        if (toRemove.Count > 0) { 
+            foreach (var r in toRemove) {
+                DeleteTask(r); 
+            }
+            needsRefresh = true; 
+        }
+        
+        if (needsRefresh) {
+            this.Invoke(new Action(() => LoadTasksFromDb()));
+        }
 
         if (digestType != "不提醒") {
             DateTime dtDigest;
             if (DateTime.TryParseExact(digestTimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out dtDigest)) {
                 DateTime targetDigest = new DateTime(now.Year, now.Month, now.Day, dtDigest.Hour, dtDigest.Minute, 0);
                 bool shouldTrigger = false;
-                if (digestType == "每週一" && now.DayOfWeek == DayOfWeek.Monday && now >= targetDigest) shouldTrigger = true;
-                if (digestType == "每月1號" && now.Day == 1 && now >= targetDigest) shouldTrigger = true;
+                
+                if (digestType == "每週一" && now.DayOfWeek == DayOfWeek.Monday && now >= targetDigest) {
+                    shouldTrigger = true;
+                }
+                if (digestType == "每月1號" && now.Day == 1 && now >= targetDigest) {
+                    shouldTrigger = true;
+                }
                 
                 string todayStr = now.ToString("yyyy-MM-dd");
                 if (shouldTrigger && lastDigestDate != todayStr) { 
-                    lastDigestDate = todayStr; SaveSettingsToDb();
-                    new AllTasksViewWindow(this).Show(); 
+                    lastDigestDate = todayStr; 
+                    SaveSettingsToDb();
+                    AllTasksViewWindow win = new AllTasksViewWindow(this);
+                    win.Show(); 
                 }
             }
         }
@@ -418,10 +501,12 @@ public class App_RecurringTasks : UserControl {
         target = now;
         try {
             string[] timeParts = t.TimeStr.Split(':');
-            int h = int.Parse(timeParts[0]); int m = int.Parse(timeParts[1]);
+            int h = int.Parse(timeParts[0]); 
+            int m = int.Parse(timeParts[1]);
 
             if (t.MonthStr == "特定日期") {
-                if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
+                DateTime specificDate;
+                if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out specificDate)) {
                     target = new DateTime(specificDate.Year, specificDate.Month, specificDate.Day, h, m, 0);
                     return true;
                 }
@@ -437,11 +522,18 @@ public class App_RecurringTasks : UserControl {
             }
             
             if (t.MonthStr == "每週") {
-                Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek> {
-                    {"一", DayOfWeek.Monday}, {"二", DayOfWeek.Tuesday}, {"三", DayOfWeek.Wednesday},
-                    {"四", DayOfWeek.Thursday}, {"五", DayOfWeek.Friday}, {"六", DayOfWeek.Saturday}, {"日", DayOfWeek.Sunday}
-                };
-                if (!dow.ContainsKey(t.DateStr)) return false;
+                Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek>();
+                dow.Add("一", DayOfWeek.Monday);
+                dow.Add("二", DayOfWeek.Tuesday);
+                dow.Add("三", DayOfWeek.Wednesday);
+                dow.Add("四", DayOfWeek.Thursday);
+                dow.Add("五", DayOfWeek.Friday);
+                dow.Add("六", DayOfWeek.Saturday);
+                dow.Add("日", DayOfWeek.Sunday);
+                
+                if (!dow.ContainsKey(t.DateStr)) {
+                    return false;
+                }
                 
                 int diff = dow[t.DateStr] - now.DayOfWeek;
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0).AddDays(diff);
@@ -518,7 +610,12 @@ public class App_RecurringTasks : UserControl {
         f.Controls.Add(txt);
         f.Controls.Add(btn);
 
-        return f.ShowDialog() == DialogResult.OK ? txt.Text : null;
+        DialogResult dr = f.ShowDialog();
+        if (dr == DialogResult.OK) {
+            return txt.Text;
+        } else {
+            return null;
+        }
     }
 }
 
@@ -578,7 +675,9 @@ public class AddRecurringTaskWindow : Form {
         cmType.Width = (int)(340 * scale);
         cmType.DropDownStyle = ComboBoxStyle.DropDownList;
         cmType.Font = UITheme.GetFont(10.5f);
-        cmType.Items.AddRange(new string[] { "循環", "單次", "到期日" });
+        cmType.Items.Add("循環");
+        cmType.Items.Add("單次");
+        cmType.Items.Add("到期日");
         f.Controls.Add(cmType);
 
         lblCycle = new Label();
@@ -591,8 +690,12 @@ public class AddRecurringTaskWindow : Form {
         cmM.Width = (int)(340 * scale);
         cmM.DropDownStyle = ComboBoxStyle.DropDownList;
         cmM.Font = UITheme.GetFont(10.5f);
-        cmM.Items.AddRange(new string[] { "每天", "每週", "每月" });
-        for(int i = 1; i <= 12; i++) cmM.Items.Add(i.ToString() + "月");
+        cmM.Items.Add("每天");
+        cmM.Items.Add("每週");
+        cmM.Items.Add("每月");
+        for(int i = 1; i <= 12; i++) {
+            cmM.Items.Add(i.ToString() + "月");
+        }
         f.Controls.Add(cmM); 
         
         cmD = new ComboBox();
@@ -615,9 +718,16 @@ public class AddRecurringTaskWindow : Form {
         f.Controls.Add(dtpDate);
 
         cmType.SelectedIndexChanged += (s, e) => {
-            bool isLoop = cmType.Text == "循環";
-            lblCycle.Visible = cmM.Visible = cmD.Visible = isLoop;
-            lblDate.Visible = dtpDate.Visible = !isLoop;
+            bool isLoop = false;
+            if (cmType.Text == "循環") {
+                isLoop = true;
+            }
+            lblCycle.Visible = isLoop;
+            cmM.Visible = isLoop;
+            cmD.Visible = isLoop;
+            
+            lblDate.Visible = !isLoop;
+            dtpDate.Visible = !isLoop;
         };
         cmType.SelectedIndex = 0; 
 
@@ -627,14 +737,24 @@ public class AddRecurringTaskWindow : Form {
                 cmD.Items.Add("每日"); 
                 cmD.Enabled = false; 
             } else if(cmM.Text == "每週") { 
-                cmD.Items.AddRange(new string[] { "一", "二", "三", "四", "五", "六", "日" }); 
+                cmD.Items.Add("一");
+                cmD.Items.Add("二");
+                cmD.Items.Add("三");
+                cmD.Items.Add("四");
+                cmD.Items.Add("五");
+                cmD.Items.Add("六");
+                cmD.Items.Add("日");
                 cmD.Enabled = true; 
             } else { 
-                for(int i = 1; i <= 31; i++) cmD.Items.Add(i.ToString()); 
+                for(int i = 1; i <= 31; i++) {
+                    cmD.Items.Add(i.ToString());
+                }
                 cmD.Items.Add("月底"); 
                 cmD.Enabled = true; 
             }
-            if (cmD.Items.Count > 0) cmD.SelectedIndex = 0;
+            if (cmD.Items.Count > 0) {
+                cmD.SelectedIndex = 0;
+            }
         }; 
         cmM.SelectedIndex = 0;
 
@@ -667,9 +787,19 @@ public class AddRecurringTaskWindow : Form {
 
         btn.Click += (s, e) => { 
             if(!string.IsNullOrWhiteSpace(txtN.Text)) { 
-                string monthVal = cmType.Text == "循環" ? cmM.Text : "特定日期";
-                string dateVal = cmType.Text == "循環" ? cmD.Text : dtpDate.Value.ToString("yyyy-MM-dd");
-                parent.AddNewTask(txtN.Text, monthVal, dateVal, dtpTime.Value.ToString("HH:mm"), txtNote.Text, cmType.Text); 
+                string monthVal = "特定日期";
+                if (cmType.Text == "循環") {
+                    monthVal = cmM.Text;
+                }
+                
+                string dateVal = dtpDate.Value.ToString("yyyy-MM-dd");
+                if (cmType.Text == "循環") {
+                    dateVal = cmD.Text;
+                }
+                
+                string timeVal = dtpTime.Value.ToString("HH:mm");
+                
+                parent.AddNewTask(txtN.Text, monthVal, dateVal, timeVal, txtNote.Text, cmType.Text); 
                 this.Close(); 
             } 
         };
@@ -738,7 +868,9 @@ public class EditRecurringTaskWindow : Form {
         cmType.Width = (int)(340 * scale);
         cmType.DropDownStyle = ComboBoxStyle.DropDownList;
         cmType.Font = UITheme.GetFont(10.5f);
-        cmType.Items.AddRange(new string[] { "循環", "單次", "到期日" });
+        cmType.Items.Add("循環");
+        cmType.Items.Add("單次");
+        cmType.Items.Add("到期日");
         cmType.Text = t.TaskType; 
         f.Controls.Add(cmType);
 
@@ -752,8 +884,12 @@ public class EditRecurringTaskWindow : Form {
         cmM.Width = (int)(340 * scale);
         cmM.DropDownStyle = ComboBoxStyle.DropDownList;
         cmM.Font = UITheme.GetFont(10.5f);
-        cmM.Items.AddRange(new string[] { "每天", "每週", "每月" });
-        for(int k = 1; k <= 12; k++) cmM.Items.Add(k.ToString() + "月");
+        cmM.Items.Add("每天");
+        cmM.Items.Add("每週");
+        cmM.Items.Add("每月");
+        for(int k = 1; k <= 12; k++) {
+            cmM.Items.Add(k.ToString() + "月");
+        }
         f.Controls.Add(cmM);
 
         cmD = new ComboBox();
@@ -776,13 +912,21 @@ public class EditRecurringTaskWindow : Form {
         f.Controls.Add(dtpDate);
 
         cmType.SelectedIndexChanged += (s, e) => {
-            bool isLoop = cmType.Text == "循環";
-            lblCycle.Visible = cmM.Visible = cmD.Visible = isLoop;
-            lblDate.Visible = dtpDate.Visible = !isLoop;
+            bool isLoop = false;
+            if (cmType.Text == "循環") {
+                isLoop = true;
+            }
+            lblCycle.Visible = isLoop;
+            cmM.Visible = isLoop;
+            cmD.Visible = isLoop;
+            
+            lblDate.Visible = !isLoop;
+            dtpDate.Visible = !isLoop;
         };
 
         if (t.MonthStr == "特定日期") {
-            if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime d)) {
+            DateTime d;
+            if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out d)) {
                 dtpDate.Value = d;
             }
         } else {
@@ -794,14 +938,27 @@ public class EditRecurringTaskWindow : Form {
             if(cmM.Text == "每天") { 
                 cmD.Items.Add("每日"); 
             } else if(cmM.Text == "每週") { 
-                cmD.Items.AddRange(new string[] { "一", "二", "三", "四", "五", "六", "日" }); 
+                cmD.Items.Add("一");
+                cmD.Items.Add("二");
+                cmD.Items.Add("三");
+                cmD.Items.Add("四");
+                cmD.Items.Add("五");
+                cmD.Items.Add("六");
+                cmD.Items.Add("日");
             } else { 
-                for(int k = 1; k <= 31; k++) cmD.Items.Add(k.ToString()); 
+                for(int k = 1; k <= 31; k++) {
+                    cmD.Items.Add(k.ToString());
+                }
                 cmD.Items.Add("月底"); 
             }
-            if(cmD.Items.Count > 0) cmD.SelectedIndex = 0;
+            if(cmD.Items.Count > 0) {
+                cmD.SelectedIndex = 0;
+            }
         }; 
-        if (t.MonthStr != "特定日期") cmD.Text = t.DateStr;
+        
+        if (t.MonthStr != "特定日期") {
+            cmD.Text = t.DateStr;
+        }
 
         Label l4 = new Label();
         l4.Text = "觸發時間：";
@@ -815,7 +972,9 @@ public class EditRecurringTaskWindow : Form {
         dtpTime.CustomFormat = "HH:mm";
         dtpTime.ShowUpDown = true;
         dtpTime.Font = UITheme.GetFont(10.5f);
-        if(DateTime.TryParseExact(t.TimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out DateTime dtv)) {
+        
+        DateTime dtv;
+        if(DateTime.TryParseExact(t.TimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out dtv)) {
             dtpTime.Value = dtv;
         }
         f.Controls.Add(dtpTime);
@@ -835,10 +994,22 @@ public class EditRecurringTaskWindow : Form {
         btn.Click += (s, e) => { 
             t.Name = txtN.Text;
             t.TaskType = cmType.Text;
-            t.MonthStr = cmType.Text == "循環" ? cmM.Text : "特定日期";
-            t.DateStr = cmType.Text == "循環" ? cmD.Text : dtpDate.Value.ToString("yyyy-MM-dd");
+            
+            string monthVal = "特定日期";
+            if (cmType.Text == "循環") {
+                monthVal = cmM.Text;
+            }
+            t.MonthStr = monthVal;
+            
+            string dateVal = dtpDate.Value.ToString("yyyy-MM-dd");
+            if (cmType.Text == "循環") {
+                dateVal = cmD.Text;
+            }
+            t.DateStr = dateVal;
+            
             t.TimeStr = dtpTime.Value.ToString("HH:mm");
             t.Note = txtNote.Text;
+            
             parent.UpdateTaskDb(t);
             this.Close(); 
         };
@@ -881,7 +1052,9 @@ public class RecurringSettingsWindow : Form {
         cmAdv.Width = (int)(70 * scale);
         cmAdv.DropDownStyle = ComboBoxStyle.DropDownList;
         cmAdv.Font = UITheme.GetFont(10.5f);
-        for (int i = 0; i <= 7; i++) cmAdv.Items.Add(i.ToString());
+        for (int i = 0; i <= 7; i++) {
+            cmAdv.Items.Add(i.ToString());
+        }
         cmAdv.Text = p.advanceDays.ToString(); 
         r1.Controls.Add(cmAdv); 
 
@@ -921,8 +1094,10 @@ public class RecurringSettingsWindow : Form {
         dtp.CustomFormat = "HH:mm";
         dtp.ShowUpDown = true;
         dtp.Font = UITheme.GetFont(10.5f);
-        if(DateTime.TryParseExact(p.digestTimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out DateTime dtv)) {
-            dtp.Value = dtv;
+        
+        DateTime dtv2;
+        if(DateTime.TryParseExact(p.digestTimeStr, "HH:mm", null, System.Globalization.DateTimeStyles.None, out dtv2)) {
+            dtp.Value = dtv2;
         }
         r2.Controls.Add(dtp); 
         f.Controls.Add(r2);
@@ -950,7 +1125,13 @@ public class RecurringSettingsWindow : Form {
         cmScan.Width = (int)(120 * scale);
         cmScan.DropDownStyle = ComboBoxStyle.DropDownList;
         cmScan.Font = UITheme.GetFont(10.5f);
-        cmScan.Items.AddRange(new string[] { "即時", "1分鐘", "5分鐘", "10分鐘", "1小時", "12小時", "1天" });
+        cmScan.Items.Add("即時");
+        cmScan.Items.Add("1分鐘");
+        cmScan.Items.Add("5分鐘");
+        cmScan.Items.Add("10分鐘");
+        cmScan.Items.Add("1小時");
+        cmScan.Items.Add("12小時");
+        cmScan.Items.Add("1天");
         cmScan.Text = p.scanFrequency;
         r3.Controls.Add(cmScan); 
 
@@ -966,8 +1147,10 @@ public class RecurringSettingsWindow : Form {
         btn.Font = UITheme.GetFont(11f, FontStyle.Bold);
         btn.Cursor = Cursors.Hand;
         btn.FlatAppearance.BorderSize = 0;
+        
         btn.Click += (s, e) => { 
-            int.TryParse(cmAdv.Text, out int advDays);
+            int advDays = 0;
+            int.TryParse(cmAdv.Text, out advDays);
             p.UpdateGlobalSettings(cmDig.Text, dtp.Value.ToString("HH:mm"), advDays, cmScan.Text); 
             this.Close(); 
         };
@@ -1131,7 +1314,7 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
-                        // 【修正】使用 CreateDataValidation() 解決編譯警告
+                        // B 欄與 C 欄字串短，直接賦值
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.List("循環,單次,到期日", true);
                         valB.ShowErrorMessage = false;
@@ -1140,12 +1323,15 @@ public class AllTasksViewWindow : Form {
                         valC.List("每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期", true);
                         valC.ShowErrorMessage = false;
 
+                        // 【修復 Bug】D 欄與 E 欄跨工作表參考，直接傳入 IXLRange 物件！
+                        var dateRangeObj = dataSheet.Range(1, 2, dateArr.Length, 2);
                         var valD = mainSheet.Range($"D2:D{maxValRow}").CreateDataValidation();
-                        valD.List($"='系統參數_勿刪'!$B$1:$B${dateArr.Length}");
+                        valD.List(dateRangeObj);
                         valD.ShowErrorMessage = false;
 
+                        var timeRangeObj = dataSheet.Range(1, 1, times.Count, 1);
                         var valE = mainSheet.Range($"E2:E{maxValRow}").CreateDataValidation();
-                        valE.List($"='系統參數_勿刪'!$A$1:$A${times.Count}");
+                        valE.List(timeRangeObj);
                         valE.ShowErrorMessage = false;
 
                         workbook.SaveAs(sfd.FileName);
@@ -1174,14 +1360,15 @@ public class AllTasksViewWindow : Form {
                             string name = r.Cell(1).GetString();
                             if (string.IsNullOrWhiteSpace(name)) continue;
 
-                            importList.Add(new App_RecurringTasks.RecurringTask {
-                                Name = name,
-                                TaskType = r.Cell(2).GetString(),
-                                MonthStr = r.Cell(3).GetString(),
-                                DateStr = r.Cell(4).GetString(),
-                                TimeStr = r.Cell(5).GetString().TrimStart('\''),
-                                Note = r.Cell(6).GetString()
-                            });
+                            RecurringTask t = new RecurringTask();
+                            t.Name = name;
+                            t.TaskType = r.Cell(2).GetString();
+                            t.MonthStr = r.Cell(3).GetString();
+                            t.DateStr = r.Cell(4).GetString();
+                            t.TimeStr = r.Cell(5).GetString().TrimStart('\'');
+                            t.Note = r.Cell(6).GetString();
+                            
+                            importList.Add(t);
                         }
 
                         var resultStats = parentControl.BulkImportOrUpdate(importList);
@@ -1240,11 +1427,23 @@ public class AllTasksViewWindow : Form {
                     lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
                 };
 
-                addGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
-                addGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
-                addGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
-                for (int i = 1; i <= 12; i++) addGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
-                addGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
+                List<App_RecurringTasks.RecurringTask> dailyList = tasks.Where(t => t.MonthStr == "每天").ToList();
+                addGroup("每天觸發", dailyList);
+                
+                List<App_RecurringTasks.RecurringTask> weeklyList = tasks.Where(t => t.MonthStr == "每週").ToList();
+                addGroup("每週觸發", weeklyList);
+                
+                List<App_RecurringTasks.RecurringTask> monthlyList = tasks.Where(t => t.MonthStr == "每月").ToList();
+                addGroup("每月觸發", monthlyList);
+                
+                for (int i = 1; i <= 12; i++) {
+                    string monthTarget = i.ToString() + "月";
+                    List<App_RecurringTasks.RecurringTask> monthSpecList = tasks.Where(t => t.MonthStr == monthTarget).ToList();
+                    addGroup(i.ToString() + "月 限定", monthSpecList);
+                }
+                
+                List<App_RecurringTasks.RecurringTask> specificList = tasks.Where(t => t.MonthStr == "特定日期").ToList();
+                addGroup("特定日期 (單次/到期日)", specificList);
 
                 pd.PrintPage += (sender, args) => {
                     float yPos = args.MarginBounds.Top;
@@ -1285,11 +1484,24 @@ public class AllTasksViewWindow : Form {
             flow.Controls.Clear(); 
             var tasks = parentControl.tasks;
             
-            AddGroup("每天觸發", tasks.Where(t => t.MonthStr == "每天").ToList());
-            AddGroup("每週觸發", tasks.Where(t => t.MonthStr == "每週").ToList());
-            AddGroup("每月觸發", tasks.Where(t => t.MonthStr == "每月").ToList());
-            for (int i = 1; i <= 12; i++) AddGroup(i.ToString() + "月 限定", tasks.Where(t => t.MonthStr == i.ToString() + "月").ToList());
-            AddGroup("特定日期 (單次/到期日)", tasks.Where(t => t.MonthStr == "特定日期").ToList());
+            List<App_RecurringTasks.RecurringTask> dailyList = tasks.Where(t => t.MonthStr == "每天").ToList();
+            AddGroup("每天觸發", dailyList);
+            
+            List<App_RecurringTasks.RecurringTask> weeklyList = tasks.Where(t => t.MonthStr == "每週").ToList();
+            AddGroup("每週觸發", weeklyList);
+            
+            List<App_RecurringTasks.RecurringTask> monthlyList = tasks.Where(t => t.MonthStr == "每月").ToList();
+            AddGroup("每月觸發", monthlyList);
+            
+            for (int i = 1; i <= 12; i++) {
+                string monthTarget = i.ToString() + "月";
+                List<App_RecurringTasks.RecurringTask> monthSpecList = tasks.Where(t => t.MonthStr == monthTarget).ToList();
+                AddGroup(i.ToString() + "月 限定", monthSpecList);
+            }
+            
+            List<App_RecurringTasks.RecurringTask> specificList = tasks.Where(t => t.MonthStr == "特定日期").ToList();
+            AddGroup("特定日期 (單次/到期日)", specificList);
+            
         } finally {
             flow.ResumeLayout();
             isRefreshing = false;
@@ -1353,7 +1565,8 @@ public class AllTasksViewWindow : Form {
             bE.Cursor = Cursors.Hand;
             bE.FlatAppearance.BorderSize = 0;
             bE.Click += (s, e) => { 
-                new EditRecurringTaskWindow(parentControl, t).ShowDialog(); 
+                EditRecurringTaskWindow win = new EditRecurringTaskWindow(parentControl, t);
+                win.ShowDialog(); 
                 RefreshData(); 
             };
 
@@ -1368,7 +1581,8 @@ public class AllTasksViewWindow : Form {
             bD.Cursor = Cursors.Hand;
             bD.FlatAppearance.BorderSize = 0;
             bD.Click += (s, e) => { 
-                if (MessageBox.Show("確定移除？", "確認", MessageBoxButtons.OKCancel) == DialogResult.OK) { 
+                DialogResult dr = MessageBox.Show("確定移除？", "確認", MessageBoxButtons.OKCancel);
+                if (dr == DialogResult.OK) { 
                     parentControl.DeleteTask(t); 
                     RefreshData(); 
                 } 
@@ -1434,7 +1648,8 @@ public class AllTasksViewWindow : Form {
                 nf.Controls.Add(nt);
                 nf.Controls.Add(nb);
 
-                if (nf.ShowDialog() == DialogResult.OK) { 
+                DialogResult res = nf.ShowDialog();
+                if (res == DialogResult.OK) { 
                     t.Note = nt.Text; 
                     parentControl.UpdateTaskDb(t); 
                     RefreshData(); 
