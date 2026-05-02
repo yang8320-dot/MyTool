@@ -3,6 +3,10 @@ name: MyTool
 on:
   workflow_dispatch:
 
+# 【修正】強制 GitHub Actions 使用最新的 Node.js 24 執行環境，消除過時警告
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -20,7 +24,6 @@ jobs:
       run: dotnet restore MiniProgram01/MyTool.csproj
 
     - name: 4. 編譯真正的程式到 Library 資料夾
-      # 將主程式與所有 DLL 打包到 publish_output/Library 中
       run: >
         dotnet publish MiniProgram01/MyTool.csproj
         -c Release
@@ -30,17 +33,13 @@ jobs:
         -o ./publish_output/Library
 
     - name: 5. 自動生成極速啟動器 (Launcher)
-      # 建立一個 10KB 的引導程式放在根目錄，點擊後會啟動 Library 裡面的主程式
       run: |
         mkdir Launcher
         
-        # 建立微型專案 (採用 Windows 內建的 .NET 4.7.2 確保體積極小且秒開)
         echo '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net472</TargetFramework><AssemblyName>MyTool</AssemblyName></PropertyGroup></Project>' > Launcher/Launcher.csproj
         
-        # 建立啟動器程式碼 (修改為呼叫 Library/MyTool.exe，並將工作目錄設為 Library)
         echo 'using System.Diagnostics; using System.IO; using System.Reflection; class Program { static void Main(string[] args) { string baseDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); string target = Path.Combine(baseDir, "Library", "MyTool.exe"); if (File.Exists(target)) { ProcessStartInfo info = new ProcessStartInfo { FileName = target, WorkingDirectory = Path.Combine(baseDir, "Library"), Arguments = string.Join(" ", args) }; Process.Start(info); } } }' > Launcher/Program.cs
         
-        # 編譯啟動器並放入外層資料夾
         dotnet build Launcher/Launcher.csproj -c Release -o ./publish_output
 
     - name: 6. 刪除啟動器產生時的多餘檔案 (保持根目錄乾淨)
@@ -49,7 +48,6 @@ jobs:
         del ./publish_output/MyTool.pdb
 
     - name: 7. 將發布檔案壓縮成 ZIP
-      # 壓縮成果，此時結構為：外層有 MyTool.exe，內層有 Library 資料夾(含所有DLL)
       run: Compress-Archive -Path ./publish_output/* -DestinationPath MyTool_Release_Clean.zip
 
     - name: 8. 上傳 ZIP 讓您可以下載
