@@ -822,71 +822,93 @@ public class AllTasksViewWindow : Form {
                     excelApp.Visible = false;
                     excelApp.DisplayAlerts = false;
                     workbook = excelApp.Workbooks.Add();
-                    dynamic sheet = workbook.Sheets[1];
+                    
+                    // --- 建立主工作表 ---
+                    dynamic mainSheet = workbook.Sheets[1];
+                    mainSheet.Name = "週期任務清單";
 
-                    sheet.Cells[1, 1] = "任務名稱";
-                    sheet.Cells[1, 2] = "任務類型";
-                    sheet.Cells[1, 3] = "週期類型";
-                    sheet.Cells[1, 4] = "指定日期";
-                    sheet.Cells[1, 5] = "觸發時間";
-                    sheet.Cells[1, 6] = "備註";
+                    // --- 建立隱藏的工作表存放長選單資料 (突破 255 字元限制) ---
+                    dynamic dataSheet = workbook.Sheets.Add(After: mainSheet);
+                    dataSheet.Name = "系統參數_勿刪";
+                    dataSheet.Visible = 0; // 隱藏此工作表
 
-                    int row = 2;
-                    foreach (var t in parentControl.tasks) {
-                        sheet.Cells[row, 1] = t.Name;
-                        sheet.Cells[row, 2] = t.TaskType;
-                        sheet.Cells[row, 3] = t.MonthStr;
-                        sheet.Cells[row, 4] = t.DateStr;
-                        sheet.Cells[row, 5] = t.TimeStr;
-                        sheet.Cells[row, 6] = t.Note;
-                        row++;
-                    }
-
-                    // --- 欄寬設定 ---
-                    sheet.Rows.RowHeight = 25;           
-                    sheet.Columns[1].ColumnWidth = 35; // 任務名稱寬改 35
-                    for (int i = 2; i <= 6; i++) {
-                        sheet.Columns[i].ColumnWidth = 12; 
-                    }
-
-                    // --- 加入 Excel 資料驗證 (下拉選單) ---
-                    int maxValRow = row > 100 ? row + 100 : 500;
-
-                    // B欄：任務類型
-                    dynamic rangeB = sheet.Range[$"B2:B{maxValRow}"];
-                    rangeB.Validation.Delete();
-                    rangeB.Validation.Add(3, 1, 1, "循環,單次,到期日"); 
-                    rangeB.Validation.InCellDropdown = true;
-                    rangeB.Validation.ShowError = false; 
-
-                    // C欄：週期類型
-                    dynamic rangeC = sheet.Range[$"C2:C{maxValRow}"];
-                    rangeC.Validation.Delete();
-                    rangeC.Validation.Add(3, 1, 1, "每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期");
-                    rangeC.Validation.InCellDropdown = true;
-                    rangeC.Validation.ShowError = false;
-
-                    // D欄：指定日期
-                    dynamic rangeD = sheet.Range[$"D2:D{maxValRow}"];
-                    rangeD.Validation.Delete();
-                    string dateOptions = "每日,一,二,三,四,五,六,日,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,月底";
-                    rangeD.Validation.Add(3, 1, 1, dateOptions);
-                    rangeD.Validation.InCellDropdown = true;
-                    rangeD.Validation.ShowError = false; 
-
-                    // E欄：觸發時間
-                    dynamic rangeE = sheet.Range[$"E2:E{maxValRow}"];
-                    rangeE.Validation.Delete();
+                    // 產生時間選項 (00:00 ~ 23:30) 寫入隱藏表 Column A
                     List<string> times = new List<string>();
                     for (int h = 0; h < 24; h++) {
                         times.Add($"{h:D2}:00");
                         times.Add($"{h:D2}:30");
                     }
-                    string timeOptions = string.Join(",", times);
-                    rangeE.Validation.Add(3, 1, 1, timeOptions);
+                    for (int i = 0; i < times.Count; i++) {
+                        dataSheet.Cells[i + 1, 1] = times[i];
+                    }
+
+                    // 產生日期選項 寫入隱藏表 Column B
+                    string[] dateArr = "每日,一,二,三,四,五,六,日,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,月底".Split(',');
+                    for (int i = 0; i < dateArr.Length; i++) {
+                        dataSheet.Cells[i + 1, 2] = dateArr[i];
+                    }
+
+                    // --- 寫入標題 ---
+                    mainSheet.Cells[1, 1] = "任務名稱";
+                    mainSheet.Cells[1, 2] = "任務類型";
+                    mainSheet.Cells[1, 3] = "週期類型";
+                    mainSheet.Cells[1, 4] = "指定日期";
+                    mainSheet.Cells[1, 5] = "觸發時間";
+                    mainSheet.Cells[1, 6] = "備註";
+
+                    // --- 寫入任務資料 ---
+                    int row = 2;
+                    foreach (var t in parentControl.tasks) {
+                        mainSheet.Cells[row, 1] = t.Name;
+                        mainSheet.Cells[row, 2] = t.TaskType;
+                        mainSheet.Cells[row, 3] = t.MonthStr;
+                        mainSheet.Cells[row, 4] = t.DateStr;
+                        // 在 Excel 中為了防止時間被轉成小數，前面加上單引號當作純文字
+                        mainSheet.Cells[row, 5] = "'" + t.TimeStr;
+                        mainSheet.Cells[row, 6] = t.Note;
+                        row++;
+                    }
+
+                    // --- 欄寬設定 ---
+                    mainSheet.Rows.RowHeight = 25;           
+                    mainSheet.Columns[1].ColumnWidth = 35; // 任務名稱寬度 35
+                    for (int i = 2; i <= 6; i++) {
+                        mainSheet.Columns[i].ColumnWidth = 12; 
+                    }
+
+                    // --- 加入 Excel 資料驗證 (下拉選單) ---
+                    int maxValRow = row > 100 ? row + 100 : 500;
+
+                    // B欄：任務類型 (字串很短，可直接寫入)
+                    dynamic rangeB = mainSheet.Range[$"B2:B{maxValRow}"];
+                    rangeB.Validation.Delete();
+                    rangeB.Validation.Add(3, 1, 1, "循環,單次,到期日"); 
+                    rangeB.Validation.InCellDropdown = true;
+                    rangeB.Validation.ShowError = false; 
+
+                    // C欄：週期類型 (字串夠短，直接寫入)
+                    dynamic rangeC = mainSheet.Range[$"C2:C{maxValRow}"];
+                    rangeC.Validation.Delete();
+                    rangeC.Validation.Add(3, 1, 1, "每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期");
+                    rangeC.Validation.InCellDropdown = true;
+                    rangeC.Validation.ShowError = false;
+
+                    // D欄：指定日期 (字串較長，參照隱藏工作表的 Column B)
+                    dynamic rangeD = mainSheet.Range[$"D2:D{maxValRow}"];
+                    rangeD.Validation.Delete();
+                    rangeD.Validation.Add(3, 1, 1, $"=系統參數_勿刪!$B$1:$B${dateArr.Length}");
+                    rangeD.Validation.InCellDropdown = true;
+                    rangeD.Validation.ShowError = false; 
+
+                    // E欄：觸發時間 (字串極長，參照隱藏工作表的 Column A)
+                    dynamic rangeE = mainSheet.Range[$"E2:E{maxValRow}"];
+                    rangeE.Validation.Delete();
+                    rangeE.Validation.Add(3, 1, 1, $"=系統參數_勿刪!$A$1:$A${times.Count}");
                     rangeE.Validation.InCellDropdown = true;
                     rangeE.Validation.ShowError = false; 
 
+                    // --- 將焦點切回主工作表並存檔 ---
+                    mainSheet.Activate();
                     workbook.SaveAs(sfd.FileName);
                     MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 } catch (Exception ex) {
@@ -915,6 +937,8 @@ public class AllTasksViewWindow : Form {
                     excelApp.Visible = false;
                     excelApp.DisplayAlerts = false;
                     workbook = excelApp.Workbooks.Open(ofd.FileName);
+                    
+                    // 確保讀取的是第一張表 (因為我們存檔時產生了第二張隱藏表)
                     dynamic sheet = workbook.Sheets[1];
 
                     dynamic lastCell = sheet.Cells.SpecialCells(11); 
