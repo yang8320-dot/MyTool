@@ -1324,32 +1324,30 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
-                        // 【完美修復】全部寫入隱藏工作表，使用標準 Excel 公式，並嚴格加上 XLAllowedValues.List 防止 XML 損毀
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.AllowedValues = XLAllowedValues.List;
-                        valB.List($"=DataValidation!$C$1:$C${typeArr.Length}");
+                        valB.List(dataSheet.Range(1, 3, typeArr.Length, 3));
                         valB.InCellDropdown = true;
                         valB.ShowErrorMessage = false;
 
                         var valC = mainSheet.Range($"C2:C{maxValRow}").CreateDataValidation();
                         valC.AllowedValues = XLAllowedValues.List;
-                        valC.List($"=DataValidation!$D$1:$D${cycleArr.Length}");
+                        valC.List(dataSheet.Range(1, 4, cycleArr.Length, 4));
                         valC.InCellDropdown = true;
                         valC.ShowErrorMessage = false;
 
                         var valD = mainSheet.Range($"D2:D{maxValRow}").CreateDataValidation();
                         valD.AllowedValues = XLAllowedValues.List;
-                        valD.List($"=DataValidation!$B$1:$B${dateArr.Length}");
+                        valD.List(dataSheet.Range(1, 2, dateArr.Length, 2));
                         valD.InCellDropdown = true;
                         valD.ShowErrorMessage = false;
 
                         var valE = mainSheet.Range($"E2:E{maxValRow}").CreateDataValidation();
                         valE.AllowedValues = XLAllowedValues.List;
-                        valE.List($"=DataValidation!$A$1:$A${times.Count}");
+                        valE.List(dataSheet.Range(1, 1, times.Count, 1));
                         valE.InCellDropdown = true;
                         valE.ShowErrorMessage = false;
 
-                        mainSheet.Activate();
                         workbook.SaveAs(sfd.FileName);
                         MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
