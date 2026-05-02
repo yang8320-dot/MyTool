@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: MiniProgram01/App_TodoList.cs 
+// ============================================================
+
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -43,47 +47,51 @@ public class App_TodoList : UserControl {
         this.Padding = new Padding((int)(10 * scale));
 
         // --- 頂部控制區 ---
-        TableLayoutPanel topBar = new TableLayoutPanel() {
-            Dock = DockStyle.Top,
-            Height = (int)(45 * scale),
-            ColumnCount = 4,
-            Padding = new Padding(0)
-        };
+        TableLayoutPanel topBar = new TableLayoutPanel();
+        topBar.Dock = DockStyle.Top;
+        topBar.Height = (int)(45 * scale);
+        topBar.ColumnCount = 4;
+        topBar.Padding = new Padding(0);
+        
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(60 * scale))); 
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));               
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(65 * scale))); 
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(95 * scale))); 
 
-        Label lblTitle = new Label() { 
-            Text = "項目：", Dock = DockStyle.Fill, 
-            TextAlign = ContentAlignment.MiddleRight, 
-            Font = UITheme.GetFont(11f, FontStyle.Bold), 
-            ForeColor = UITheme.TextMain 
-        };
+        Label lblTitle = new Label();
+        lblTitle.Text = "項目：";
+        lblTitle.Dock = DockStyle.Fill;
+        lblTitle.TextAlign = ContentAlignment.MiddleRight;
+        lblTitle.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        lblTitle.ForeColor = UITheme.TextMain;
         
-        inputField = new TextBox() { 
-            Dock = DockStyle.Fill, Font = UITheme.GetFont(11f), 
-            Margin = new Padding(0, (int)(8 * scale), (int)(5 * scale), 0) 
-        };
+        inputField = new TextBox();
+        inputField.Dock = DockStyle.Fill;
+        inputField.Font = UITheme.GetFont(11f);
+        inputField.Margin = new Padding(0, (int)(8 * scale), (int)(5 * scale), 0);
         inputField.KeyDown += new KeyEventHandler(InputField_KeyDown);
 
-        Button btnAdd = new Button() { 
-            Text = "新增", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
-            BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, 
-            Font = UITheme.GetFont(10.5f, FontStyle.Bold), 
-            Margin = new Padding(0, (int)(5 * scale), (int)(5 * scale), (int)(5 * scale)), 
-            Cursor = Cursors.Hand 
-        };
+        Button btnAdd = new Button();
+        btnAdd.Text = "新增";
+        btnAdd.Dock = DockStyle.Fill;
+        btnAdd.FlatStyle = FlatStyle.Flat;
+        btnAdd.BackColor = UITheme.AppleBlue;
+        btnAdd.ForeColor = UITheme.CardWhite;
+        btnAdd.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        btnAdd.Margin = new Padding(0, (int)(5 * scale), (int)(5 * scale), (int)(5 * scale));
+        btnAdd.Cursor = Cursors.Hand;
         btnAdd.FlatAppearance.BorderSize = 0;
         btnAdd.Click += new EventHandler(BtnAdd_Click);
 
-        Button btnPrint = new Button() { 
-            Text = "導出PDF", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
-            BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, 
-            Font = UITheme.GetFont(10.5f, FontStyle.Bold), 
-            Margin = new Padding(0, (int)(5 * scale), 0, (int)(5 * scale)), 
-            Cursor = Cursors.Hand 
-        };
+        Button btnPrint = new Button();
+        btnPrint.Text = "導出PDF";
+        btnPrint.Dock = DockStyle.Fill;
+        btnPrint.FlatStyle = FlatStyle.Flat;
+        btnPrint.BackColor = UITheme.AppleGreen;
+        btnPrint.ForeColor = UITheme.CardWhite;
+        btnPrint.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        btnPrint.Margin = new Padding(0, (int)(5 * scale), 0, (int)(5 * scale));
+        btnPrint.Cursor = Cursors.Hand;
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
@@ -107,12 +115,15 @@ public class App_TodoList : UserControl {
         taskContainer.DragDrop += OnTaskDragDrop;
         taskContainer.Paint += OnTaskContainerPaint;
 
+        // 【效能優化】加入 SuspendLayout 解決縮放時卡頓與閃爍
         taskContainer.Resize += (s, e) => {
             int safeWidth = taskContainer.ClientSize.Width - (int)(10 * scale); 
             if (safeWidth > 0) {
+                taskContainer.SuspendLayout();
                 foreach (Control c in taskContainer.Controls) {
                     if (c is Panel) c.Width = safeWidth;
                 }
+                taskContainer.ResumeLayout(true);
             }
         };
 
@@ -141,7 +152,6 @@ public class App_TodoList : UserControl {
         text = text.Trim(); 
         if (string.IsNullOrEmpty(text)) return;
         
-        // 【修改需求】：將自動產生的日期改為備註的第一行，標題不再加入日期
         if (source == "手動") {
             string dateNote = $"本項目於：{DateTime.Now:yyyy年MM月dd日} 新增";
             if (string.IsNullOrEmpty(note)) {
@@ -213,13 +223,12 @@ public class App_TodoList : UserControl {
         Color textColor = Color.FromName(task.Color);
         int startWidth = taskContainer.ClientSize.Width > (int)(20 * scale) ? taskContainer.ClientSize.Width - (int)(10 * scale) : (int)(450 * scale);
 
-        Panel card = new Panel() {
-            Width = startWidth,
-            AutoSize = true,
-            Margin = new Padding(0, 0, 0, (int)(3 * scale)),
-            BackColor = UITheme.CardWhite,
-            Tag = task 
-        };
+        Panel card = new Panel();
+        card.Width = startWidth;
+        card.AutoSize = true;
+        card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
+        card.BackColor = UITheme.CardWhite;
+        card.Tag = task;
 
         card.Paint += (s, e) => {
             UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
@@ -229,10 +238,13 @@ public class App_TodoList : UserControl {
             }
         };
 
-        TableLayoutPanel item = new TableLayoutPanel() {
-            Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 6, RowCount = 1,
-            Padding = new Padding((int)(5 * scale)), BackColor = Color.Transparent
-        };
+        TableLayoutPanel item = new TableLayoutPanel();
+        item.Dock = DockStyle.Fill;
+        item.AutoSize = true;
+        item.ColumnCount = 6;
+        item.RowCount = 1;
+        item.Padding = new Padding((int)(5 * scale));
+        item.BackColor = Color.Transparent;
 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(35 * scale))); 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
@@ -241,10 +253,12 @@ public class App_TodoList : UserControl {
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 色
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 修
         
-        CheckBox chk = new CheckBox() {
-            Dock = DockStyle.Fill, Cursor = Cursors.Hand, BackColor = Color.Transparent,
-            CheckAlign = ContentAlignment.MiddleCenter, Padding = new Padding((int)(5 * scale), (int)(5 * scale), 0, 0)
-        };
+        CheckBox chk = new CheckBox();
+        chk.Dock = DockStyle.Fill;
+        chk.Cursor = Cursors.Hand;
+        chk.BackColor = Color.Transparent;
+        chk.CheckAlign = ContentAlignment.MiddleCenter;
+        chk.Padding = new Padding((int)(5 * scale), (int)(5 * scale), 0, 0);
         
         chk.CheckedChanged += (s, e) => {
             if (chk.Checked) {
@@ -260,15 +274,19 @@ public class App_TodoList : UserControl {
             }
         };
 
-        Label lbl = new Label() {
-            Text = task.Text, Dock = DockStyle.Fill, Font = UITheme.GetFont(10.5f),
-            ForeColor = textColor, AutoSize = true, Padding = new Padding(0, (int)(6 * scale), 0, (int)(6 * scale)),
-            Cursor = Cursors.SizeAll, BackColor = Color.Transparent, TextAlign = ContentAlignment.MiddleLeft
-        };
+        Label lbl = new Label();
+        lbl.Text = task.Text;
+        lbl.Dock = DockStyle.Fill;
+        lbl.Font = UITheme.GetFont(10.5f);
+        lbl.ForeColor = textColor;
+        lbl.AutoSize = true;
+        lbl.Padding = new Padding(0, (int)(6 * scale), 0, (int)(6 * scale));
+        lbl.Cursor = Cursors.SizeAll;
+        lbl.BackColor = Color.Transparent;
+        lbl.TextAlign = ContentAlignment.MiddleLeft;
 
         Button btnNote = CreateCardButton("註");
         Action updateNoteStyle = () => {
-            // 【修改需求】：如果備註是空的，或者「完全等於」系統自動產生的那行日期文字，就不變色。
             string autoGenPrefix = "本項目於：";
             string autoGenSuffix = "新增";
             bool isOnlySystemNote = false;
@@ -338,9 +356,12 @@ public class App_TodoList : UserControl {
         
         lbl.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) card.DoDragDrop(card, DragDropEffects.Move); };
 
-        item.Controls.Add(chk, 0, 0); item.Controls.Add(lbl, 1, 0);
-        item.Controls.Add(btnNote, 2, 0); item.Controls.Add(btnMove, 3, 0);
-        item.Controls.Add(btnColor, 4, 0); item.Controls.Add(btnEdit, 5, 0);
+        item.Controls.Add(chk, 0, 0); 
+        item.Controls.Add(lbl, 1, 0);
+        item.Controls.Add(btnNote, 2, 0); 
+        item.Controls.Add(btnMove, 3, 0);
+        item.Controls.Add(btnColor, 4, 0); 
+        item.Controls.Add(btnEdit, 5, 0);
         
         card.Controls.Add(item); 
         
@@ -353,11 +374,15 @@ public class App_TodoList : UserControl {
     }
 
     private Button CreateCardButton(string text) {
-        Button btn = new Button() {
-            Text = text, Dock = DockStyle.Fill, Height = (int)(32 * scale),
-            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = UITheme.BgGray,
-            Font = UITheme.GetFont(9f, FontStyle.Bold), Margin = new Padding((int)(2 * scale))
-        };
+        Button btn = new Button();
+        btn.Text = text;
+        btn.Dock = DockStyle.Fill;
+        btn.Height = (int)(32 * scale);
+        btn.FlatStyle = FlatStyle.Flat;
+        btn.Cursor = Cursors.Hand;
+        btn.BackColor = UITheme.BgGray;
+        btn.Font = UITheme.GetFont(9f, FontStyle.Bold);
+        btn.Margin = new Padding((int)(2 * scale));
         btn.FlatAppearance.BorderSize = 0;
         return btn;
     }
@@ -497,56 +522,119 @@ public class App_TodoList : UserControl {
         }
     }
 
+    // 【安全化】將彈出視窗的 UI 產生語法拆分為多行
     private string ShowLargeEditBox(string defaultValue) {
-        Form form = new Form() { 
-            Width = (int)(450 * scale), Height = (int)(280 * scale), 
-            Text = "修正任務內容", StartPosition = FormStartPosition.CenterScreen, 
-            FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false,
-            BackColor = UITheme.BgGray 
-        };
-        Label lbl = new Label() { Text = "請輸入修正後的內容：", Left = (int)(15 * scale), Top = (int)(15 * scale), AutoSize = true, Font = UITheme.GetFont(10.5f, FontStyle.Bold) };
+        Form form = new Form();
+        form.Width = (int)(450 * scale);
+        form.Height = (int)(280 * scale);
+        form.Text = "修正任務內容";
+        form.StartPosition = FormStartPosition.CenterScreen;
+        form.FormBorderStyle = FormBorderStyle.FixedDialog;
+        form.MaximizeBox = false;
+        form.MinimizeBox = false;
+        form.BackColor = UITheme.BgGray;
+
+        Label lbl = new Label();
+        lbl.Text = "請輸入修正後的內容：";
+        lbl.Left = (int)(15 * scale);
+        lbl.Top = (int)(15 * scale);
+        lbl.AutoSize = true;
+        lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
         
-        TextBox txt = new TextBox() { 
-            Left = (int)(15 * scale), Top = (int)(45 * scale), Width = (int)(405 * scale), Height = (int)(120 * scale), 
-            Multiline = true, AcceptsReturn = true, ScrollBars = ScrollBars.Vertical, 
-            Font = UITheme.GetFont(11f), Text = defaultValue 
-        };
+        TextBox txt = new TextBox();
+        txt.Left = (int)(15 * scale);
+        txt.Top = (int)(45 * scale);
+        txt.Width = (int)(405 * scale);
+        txt.Height = (int)(120 * scale);
+        txt.Multiline = true;
+        txt.AcceptsReturn = true;
+        txt.ScrollBars = ScrollBars.Vertical;
+        txt.Font = UITheme.GetFont(11f);
+        txt.Text = defaultValue;
         
-        Button btnOk = new Button() { Text = "確認修改", Left = (int)(300 * scale), Top = (int)(180 * scale), Width = (int)(120 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnOk = new Button();
+        btnOk.Text = "確認修改";
+        btnOk.Left = (int)(300 * scale);
+        btnOk.Top = (int)(180 * scale);
+        btnOk.Width = (int)(120 * scale);
+        btnOk.Height = (int)(40 * scale);
+        btnOk.DialogResult = DialogResult.OK;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnOk.Cursor = Cursors.Hand;
         btnOk.FlatAppearance.BorderSize = 0;
 
-        form.Controls.AddRange(new Control[] { lbl, txt, btnOk });
+        form.Controls.Add(lbl);
+        form.Controls.Add(txt);
+        form.Controls.Add(btnOk);
+        
         form.AcceptButton = btnOk;
         txt.SelectionStart = txt.Text.Length; 
         
-        if (form.ShowDialog() == DialogResult.OK) return txt.Text.Trim();
+        if (form.ShowDialog() == DialogResult.OK) {
+            return txt.Text.Trim();
+        }
         return "";
     }
 
+    // 【安全化】將彈出視窗的 UI 產生語法拆分為多行
     private string ShowNoteEditBox(string taskName, string currentNote) {
-        Form form = new Form() { 
-            Width = (int)(420 * scale), Height = (int)(380 * scale), 
-            Text = "任務詳細說明 (註)", StartPosition = FormStartPosition.CenterScreen, 
-            FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false,
-            BackColor = UITheme.BgGray 
-        };
+        Form form = new Form();
+        form.Width = (int)(420 * scale);
+        form.Height = (int)(380 * scale);
+        form.Text = "任務詳細說明 (註)";
+        form.StartPosition = FormStartPosition.CenterScreen;
+        form.FormBorderStyle = FormBorderStyle.FixedDialog;
+        form.MaximizeBox = false;
+        form.MinimizeBox = false;
+        form.BackColor = UITheme.BgGray;
         
-        Label lbl = new Label() { Text = "【 " + taskName + " 】", Left = (int)(15 * scale), Top = (int)(15 * scale), Width = (int)(370 * scale), Height = (int)(45 * scale), Font = UITheme.GetFont(11f, FontStyle.Bold), ForeColor = UITheme.AppleBlue };
+        Label lbl = new Label();
+        lbl.Text = "【 " + taskName + " 】";
+        lbl.Left = (int)(15 * scale);
+        lbl.Top = (int)(15 * scale);
+        lbl.Width = (int)(370 * scale);
+        lbl.Height = (int)(45 * scale);
+        lbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        lbl.ForeColor = UITheme.AppleBlue;
         
-        TextBox txt = new TextBox() { 
-            Left = (int)(15 * scale), Top = (int)(65 * scale), Width = (int)(370 * scale), Height = (int)(200 * scale), 
-            Multiline = true, AcceptsReturn = true, ScrollBars = ScrollBars.Vertical, 
-            Font = UITheme.GetFont(10.5f), Text = currentNote 
-        };
+        TextBox txt = new TextBox();
+        txt.Left = (int)(15 * scale);
+        txt.Top = (int)(65 * scale);
+        txt.Width = (int)(370 * scale);
+        txt.Height = (int)(200 * scale);
+        txt.Multiline = true;
+        txt.AcceptsReturn = true;
+        txt.ScrollBars = ScrollBars.Vertical;
+        txt.Font = UITheme.GetFont(10.5f);
+        txt.Text = currentNote;
         
-        Button btnOk = new Button() { Text = "儲存說明", Left = (int)(265 * scale), Top = (int)(280 * scale), Width = (int)(120 * scale), Height = (int)(40 * scale), DialogResult = DialogResult.OK, FlatStyle = FlatStyle.Flat, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnOk = new Button();
+        btnOk.Text = "儲存說明";
+        btnOk.Left = (int)(265 * scale);
+        btnOk.Top = (int)(280 * scale);
+        btnOk.Width = (int)(120 * scale);
+        btnOk.Height = (int)(40 * scale);
+        btnOk.DialogResult = DialogResult.OK;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnOk.Cursor = Cursors.Hand;
         btnOk.FlatAppearance.BorderSize = 0;
 
-        form.Controls.AddRange(new Control[] { lbl, txt, btnOk });
+        form.Controls.Add(lbl);
+        form.Controls.Add(txt);
+        form.Controls.Add(btnOk);
+        
         form.AcceptButton = btnOk;
         txt.SelectionStart = txt.Text.Length; 
         
-        if (form.ShowDialog() == DialogResult.OK) return txt.Text.Trim();
+        if (form.ShowDialog() == DialogResult.OK) {
+            return txt.Text.Trim();
+        }
         return null;
     }
 }
