@@ -1,4 +1,4 @@
-name: 打包 MiniProgram01 Context
+name: 打包 Context
 
 on:
   workflow_dispatch:
