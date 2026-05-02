@@ -457,67 +457,69 @@ public class App_TodoList : UserControl {
             sfd.FileName = $"{titleName}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
             if (sfd.ShowDialog() == DialogResult.OK) {
-                PrintDocument pd = new PrintDocument();
-                pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
-                pd.PrinterSettings.PrintToFile = true;
-                pd.PrinterSettings.PrintFileName = sfd.FileName;
+                // 【修正】加入 using 確保列印資源用完立刻徹底釋放關閉
+                using (PrintDocument pd = new PrintDocument()) {
+                    pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
+                    pd.PrinterSettings.PrintToFile = true;
+                    pd.PrinterSettings.PrintFileName = sfd.FileName;
 
-                int currentLine = 0;
-                Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
-                Font txtFont = UITheme.GetFont(12f);
-                Font noteFont = UITheme.GetFont(10f);
+                    int currentLine = 0;
+                    Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
+                    Font txtFont = UITheme.GetFont(12f);
+                    Font noteFont = UITheme.GetFont(10f);
 
-                pd.PrintPage += (sender, args) => {
-                    float yPos = args.MarginBounds.Top;
-                    float leftMargin = args.MarginBounds.Left;
+                    pd.PrintPage += (sender, args) => {
+                        float yPos = args.MarginBounds.Top;
+                        float leftMargin = args.MarginBounds.Left;
 
-                    if (currentLine == 0) {
-                        args.Graphics.DrawString($"【 {titleName} 】", titleFont, Brushes.Black, leftMargin, yPos);
-                        yPos += 40;
-                        args.Graphics.DrawString("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), noteFont, Brushes.Gray, leftMargin, yPos);
-                        yPos += 30;
-                        args.Graphics.DrawLine(Pens.Black, leftMargin, yPos, args.MarginBounds.Right, yPos);
-                        yPos += 15;
-                    }
-
-                    while (currentLine < taskDataList.Count) {
-                        var t = taskDataList[currentLine];
-                        string mainTxt = "□ " + t.Text;
-                        SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
-                        
-                        if (yPos + size.Height > args.MarginBounds.Bottom) {
-                            args.HasMorePages = true; 
-                            return; 
+                        if (currentLine == 0) {
+                            args.Graphics.DrawString($"【 {titleName} 】", titleFont, Brushes.Black, leftMargin, yPos);
+                            yPos += 40;
+                            args.Graphics.DrawString("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), noteFont, Brushes.Gray, leftMargin, yPos);
+                            yPos += 30;
+                            args.Graphics.DrawLine(Pens.Black, leftMargin, yPos, args.MarginBounds.Right, yPos);
+                            yPos += 15;
                         }
 
-                        args.Graphics.DrawString(mainTxt, txtFont, Brushes.Black, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
-                        yPos += size.Height + 5; 
-
-                        if (!string.IsNullOrWhiteSpace(t.Note)) {
-                            string notePrefix = "   備註:\n      ";
-                            string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
+                        while (currentLine < taskDataList.Count) {
+                            var t = taskDataList[currentLine];
+                            string mainTxt = "□ " + t.Text;
+                            SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
                             
-                            SizeF noteSize = args.Graphics.MeasureString(formattedNote, noteFont, args.MarginBounds.Width);
-                            if (yPos + noteSize.Height > args.MarginBounds.Bottom) { 
+                            if (yPos + size.Height > args.MarginBounds.Bottom) {
                                 args.HasMorePages = true; 
                                 return; 
                             }
-                            args.Graphics.DrawString(formattedNote, noteFont, Brushes.DimGray, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, noteSize.Height));
-                            yPos += noteSize.Height + 5;
-                        }
-                        
-                        yPos += 10;
-                        currentLine++;
-                    }
-                    args.HasMorePages = false;
-                };
 
-                try {
-                    pd.Print();
-                    MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                } catch (Exception ex) {
-                    MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                            args.Graphics.DrawString(mainTxt, txtFont, Brushes.Black, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
+                            yPos += size.Height + 5; 
+
+                            if (!string.IsNullOrWhiteSpace(t.Note)) {
+                                string notePrefix = "   備註:\n      ";
+                                string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
+                                
+                                SizeF noteSize = args.Graphics.MeasureString(formattedNote, noteFont, args.MarginBounds.Width);
+                                if (yPos + noteSize.Height > args.MarginBounds.Bottom) { 
+                                    args.HasMorePages = true; 
+                                    return; 
+                                }
+                                args.Graphics.DrawString(formattedNote, noteFont, Brushes.DimGray, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, noteSize.Height));
+                                yPos += noteSize.Height + 5;
+                            }
+                            
+                            yPos += 10;
+                            currentLine++;
+                        }
+                        args.HasMorePages = false;
+                    };
+
+                    try {
+                        pd.Print();
+                        MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    } catch (Exception ex) {
+                        MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                } // 離開 using 區塊時，pd 會自動呼叫 Dispose() 釋放系統印表機資源
             }
         }
     }
