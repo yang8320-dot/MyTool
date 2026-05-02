@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: MiniProgram01/App_FileWatcher.cs
+// ============================================================
+
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -28,30 +32,42 @@ public class App_FileWatcher : UserControl {
         this.Padding = new Padding((int)(5 * scale));
 
         // --- 頂部控制列 ---
-        TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(50 * scale), ColumnCount = 3 };
+        TableLayoutPanel header = new TableLayoutPanel();
+        header.Dock = DockStyle.Top;
+        header.Height = (int)(50 * scale);
+        header.ColumnCount = 3;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(100 * scale))); 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(100 * scale)));
 
-        Label lblTitle = new Label() { 
-            Text = "異動紀錄清單", Font = UITheme.GetFont(12f, FontStyle.Bold), ForeColor = UITheme.TextMain,
-            Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding((int)(10 * scale),0,0,0) 
-        };
+        Label lblTitle = new Label();
+        lblTitle.Text = "異動紀錄清單";
+        lblTitle.Font = UITheme.GetFont(12f, FontStyle.Bold);
+        lblTitle.ForeColor = UITheme.TextMain;
+        lblTitle.Dock = DockStyle.Fill;
+        lblTitle.TextAlign = ContentAlignment.MiddleLeft;
+        lblTitle.Padding = new Padding((int)(10 * scale),0,0,0);
         
-        Button btnClear = new Button() { 
-            Text = "一鍵清除", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
-            Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(2 * scale),(int)(8 * scale)), 
-            Cursor = Cursors.Hand, BackColor = UITheme.CardWhite, Font = UITheme.GetFont(10f, FontStyle.Bold)
-        };
+        Button btnClear = new Button();
+        btnClear.Text = "一鍵清除";
+        btnClear.Dock = DockStyle.Fill;
+        btnClear.FlatStyle = FlatStyle.Flat;
+        btnClear.Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(2 * scale),(int)(8 * scale));
+        btnClear.Cursor = Cursors.Hand;
+        btnClear.BackColor = UITheme.CardWhite;
+        btnClear.Font = UITheme.GetFont(10f, FontStyle.Bold);
         btnClear.FlatAppearance.BorderColor = Color.LightGray;
         btnClear.Click += (s, e) => cardPanel.Controls.Clear();
         
-        Button btnGoSet = new Button() { 
-            Text = "設定參數", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat, 
-            BackColor = Color.Gainsboro, ForeColor = UITheme.TextMain,
-            Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(8 * scale),(int)(8 * scale)), 
-            Cursor = Cursors.Hand, Font = UITheme.GetFont(10f, FontStyle.Bold)
-        };
+        Button btnGoSet = new Button();
+        btnGoSet.Text = "設定參數";
+        btnGoSet.Dock = DockStyle.Fill;
+        btnGoSet.FlatStyle = FlatStyle.Flat;
+        btnGoSet.BackColor = Color.Gainsboro;
+        btnGoSet.ForeColor = UITheme.TextMain;
+        btnGoSet.Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(8 * scale),(int)(8 * scale));
+        btnGoSet.Cursor = Cursors.Hand;
+        btnGoSet.Font = UITheme.GetFont(10f, FontStyle.Bold);
         btnGoSet.FlatAppearance.BorderSize = 0;
         btnGoSet.Click += (s, e) => { new MonitorSettingsWindow(this).Show(); };
 
@@ -61,18 +77,21 @@ public class App_FileWatcher : UserControl {
         this.Controls.Add(header);
 
         // --- 提示卡片容器 ---
-        cardPanel = new FlowLayoutPanel() { 
-            Dock = DockStyle.Fill, AutoScroll = true, 
-            FlowDirection = FlowDirection.TopDown, WrapContents = false, 
-            BackColor = UITheme.BgGray 
-        };
+        cardPanel = new FlowLayoutPanel();
+        cardPanel.Dock = DockStyle.Fill;
+        cardPanel.AutoScroll = true;
+        cardPanel.FlowDirection = FlowDirection.TopDown;
+        cardPanel.WrapContents = false;
+        cardPanel.BackColor = UITheme.BgGray;
         
         cardPanel.Resize += (s, e) => {
             int safeWidth = cardPanel.ClientSize.Width - (int)(15 * scale);
             if (safeWidth > 0) {
+                cardPanel.SuspendLayout(); // 【優化】避免卡頓
                 foreach (Control c in cardPanel.Controls) {
                     if (c is Panel) c.Width = safeWidth;
                 }
+                cardPanel.ResumeLayout(true);
             }
         };
 
@@ -346,13 +365,12 @@ public class App_FileWatcher : UserControl {
                             }
                         }
                         
-                        // 【修改需求】：通知卡片底部間距改為 3 * scale
-                        Panel c = new Panel() { 
-                            Name = cardUniqueName, 
-                            Width = (int)(340 * scale), AutoSize = true, 
-                            BackColor = UITheme.CardWhite,
-                            Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(3 * scale)) 
-                        };
+                        Panel c = new Panel();
+                        c.Name = cardUniqueName;
+                        c.Width = (int)(340 * scale);
+                        c.AutoSize = true;
+                        c.BackColor = UITheme.CardWhite;
+                        c.Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(3 * scale));
                         
                         c.Paint += (s, ev) => {
                             UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, c.Width - 1, c.Height - 1), (int)(8 * scale), UITheme.CardWhite);
@@ -362,52 +380,67 @@ public class App_FileWatcher : UserControl {
                             }
                         };
                         
-                        TableLayoutPanel tlp = new TableLayoutPanel() { 
-                            Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, 
-                            AutoSize = true, Padding = new Padding((int)(8 * scale)),
-                            BackColor = Color.Transparent
-                        };
+                        TableLayoutPanel tlp = new TableLayoutPanel();
+                        tlp.Dock = DockStyle.Fill;
+                        tlp.ColumnCount = 2;
+                        tlp.RowCount = 1;
+                        tlp.AutoSize = true;
+                        tlp.Padding = new Padding((int)(8 * scale));
+                        tlp.BackColor = Color.Transparent;
+
                         tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(65 * scale))); 
                         tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
 
-                        FlowLayoutPanel btnPnl = new FlowLayoutPanel() { 
-                            FlowDirection = FlowDirection.TopDown, 
-                            AutoSize = true, Margin = new Padding(0) 
-                        };
+                        FlowLayoutPanel btnPnl = new FlowLayoutPanel();
+                        btnPnl.FlowDirection = FlowDirection.TopDown;
+                        btnPnl.AutoSize = true;
+                        btnPnl.Margin = new Padding(0);
                         
-                        Button bView = new Button() { 
-                            Text = "查看", Width = (int)(55 * scale), Height = (int)(28 * scale), 
-                            Margin = new Padding(0, (int)(2 * scale), 0, (int)(5 * scale)), 
-                            BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, 
-                            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UITheme.GetFont(9f, FontStyle.Bold)
-                        };
+                        Button bView = new Button();
+                        bView.Text = "查看";
+                        bView.Width = (int)(55 * scale);
+                        bView.Height = (int)(28 * scale);
+                        bView.Margin = new Padding(0, (int)(2 * scale), 0, (int)(5 * scale));
+                        bView.BackColor = UITheme.AppleBlue;
+                        bView.ForeColor = UITheme.CardWhite;
+                        bView.FlatStyle = FlatStyle.Flat;
+                        bView.Cursor = Cursors.Hand;
+                        bView.Font = UITheme.GetFont(9f, FontStyle.Bold);
                         bView.FlatAppearance.BorderSize = 0;
                         bView.Click += (s, e2) => {
                             try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + srcFile + "\""); } catch { }
                             cardPanel.Controls.Remove(c); c.Dispose(); 
                         };
                         
-                        Button bClose = new Button() { 
-                            Text = "X", Width = (int)(55 * scale), Height = (int)(28 * scale), 
-                            BackColor = UITheme.AppleRed, ForeColor = UITheme.CardWhite, 
-                            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UITheme.GetFont(9f, FontStyle.Bold)
-                        };
+                        Button bClose = new Button();
+                        bClose.Text = "X";
+                        bClose.Width = (int)(55 * scale);
+                        bClose.Height = (int)(28 * scale);
+                        bClose.BackColor = UITheme.AppleRed;
+                        bClose.ForeColor = UITheme.CardWhite;
+                        bClose.FlatStyle = FlatStyle.Flat;
+                        bClose.Cursor = Cursors.Hand;
+                        bClose.Font = UITheme.GetFont(9f, FontStyle.Bold);
                         bClose.FlatAppearance.BorderSize = 0;
                         bClose.Click += (s, e2) => { cardPanel.Controls.Remove(c); c.Dispose(); };
                         
-                        btnPnl.Controls.Add(bView); btnPnl.Controls.Add(bClose);
+                        btnPnl.Controls.Add(bView); 
+                        btnPnl.Controls.Add(bClose);
 
                         string displayLoc = string.IsNullOrWhiteSpace(customName) ? (isInsideFolder ? pathParts[0] : relPath) : customName;
-                        Label lbl = new Label() { 
-                            Text = displayFileName + "\n位置: " + displayLoc, 
-                            Dock = DockStyle.Fill, AutoSize = true, 
-                            Padding = new Padding((int)(10 * scale), (int)(5 * scale), 0, 0), 
-                            TextAlign = ContentAlignment.MiddleLeft,
-                            Font = UITheme.GetFont(10.5f), ForeColor = UITheme.TextMain
-                        };
+                        Label lbl = new Label();
+                        lbl.Text = displayFileName + "\n位置: " + displayLoc;
+                        lbl.Dock = DockStyle.Fill;
+                        lbl.AutoSize = true;
+                        lbl.Padding = new Padding((int)(10 * scale), (int)(5 * scale), 0, 0);
+                        lbl.TextAlign = ContentAlignment.MiddleLeft;
+                        lbl.Font = UITheme.GetFont(10.5f);
+                        lbl.ForeColor = UITheme.TextMain;
                         
-                        tlp.Controls.Add(btnPnl, 0, 0); tlp.Controls.Add(lbl, 1, 0); 
+                        tlp.Controls.Add(btnPnl, 0, 0); 
+                        tlp.Controls.Add(lbl, 1, 0); 
                         c.Controls.Add(tlp);
+                        
                         cardPanel.Controls.Add(c); 
                         cardPanel.Controls.SetChildIndex(c, 0);
                         
@@ -469,10 +502,11 @@ public class MonitorSettingsWindow : Form {
         this.MinimizeBox = false;
         this.TopMost = true; 
 
-        FlowLayoutPanel mainFlow = new FlowLayoutPanel() { 
-            FlowDirection = FlowDirection.TopDown, WrapContents = false, 
-            Padding = new Padding((int)(20 * scale)), AutoSize = true 
-        };
+        FlowLayoutPanel mainFlow = new FlowLayoutPanel();
+        mainFlow.FlowDirection = FlowDirection.TopDown;
+        mainFlow.WrapContents = false;
+        mainFlow.Padding = new Padding((int)(20 * scale));
+        mainFlow.AutoSize = true;
         
         txtCustomName = AddTextRow(mainFlow, "自訂顯示名稱：");
         txtSource = AddPathRow(mainFlow, "來源路徑：");
@@ -487,13 +521,16 @@ public class MonitorSettingsWindow : Form {
         cmbFreq = AddComboRow(mainFlow, "延遲執行：", new string[] { "0秒", "1秒", "3秒", "5秒", "10秒" });
         cmbDepth = AddComboRow(mainFlow, "監控深度：", new string[] { "無限層", "僅本層", "第一層", "第二層", "第三層" });
 
-        Button btnSave = new Button() { 
-            Text = string.IsNullOrEmpty(existingKey) ? "新增任務" : "儲存修改", 
-            Width = (int)(360 * scale), Height = (int)(45 * scale), 
-            BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, 
-            FlatStyle = FlatStyle.Flat, Margin = new Padding(0, (int)(20 * scale), 0, 0),
-            Font = UITheme.GetFont(11f, FontStyle.Bold), Cursor = Cursors.Hand
-        };
+        Button btnSave = new Button();
+        btnSave.Text = string.IsNullOrEmpty(existingKey) ? "新增任務" : "儲存修改";
+        btnSave.Width = (int)(360 * scale);
+        btnSave.Height = (int)(45 * scale);
+        btnSave.BackColor = UITheme.AppleBlue;
+        btnSave.ForeColor = UITheme.CardWhite;
+        btnSave.FlatStyle = FlatStyle.Flat;
+        btnSave.Margin = new Padding(0, (int)(20 * scale), 0, 0);
+        btnSave.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        btnSave.Cursor = Cursors.Hand;
         btnSave.FlatAppearance.BorderSize = 0;
         
         if (existingData != null && existingData.Length >= 8) {
@@ -533,13 +570,18 @@ public class MonitorSettingsWindow : Form {
         mainFlow.Controls.Add(btnSave);
 
         if (string.IsNullOrEmpty(existingKey)) {
-            Button btnList = new Button() { 
-                Text = "管理現有任務", Width = (int)(360 * scale), Height = (int)(45 * scale), 
-                BackColor = Color.Gray, ForeColor = UITheme.CardWhite, 
-                FlatStyle = FlatStyle.Flat, Margin = new Padding(0, (int)(10 * scale), 0, 0),
-                Font = UITheme.GetFont(11f, FontStyle.Bold), Cursor = Cursors.Hand
-            };
+            Button btnList = new Button();
+            btnList.Text = "管理現有任務";
+            btnList.Width = (int)(360 * scale);
+            btnList.Height = (int)(45 * scale);
+            btnList.BackColor = Color.Gray;
+            btnList.ForeColor = UITheme.CardWhite;
+            btnList.FlatStyle = FlatStyle.Flat;
+            btnList.Margin = new Padding(0, (int)(10 * scale), 0, 0);
+            btnList.Font = UITheme.GetFont(11f, FontStyle.Bold);
+            btnList.Cursor = Cursors.Hand;
             btnList.FlatAppearance.BorderSize = 0;
+
             btnList.Click += (s, e) => { parentWatcher.OpenListWindow(); this.Close(); };
             mainFlow.Controls.Add(btnList);
         }
@@ -547,34 +589,81 @@ public class MonitorSettingsWindow : Form {
     }
 
     private TextBox AddTextRow(FlowLayoutPanel container, string label) {
-        container.Controls.Add(new Label() { Text = label, AutoSize = true, Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale)), Font = UITheme.GetFont(10.5f, FontStyle.Bold) });
-        TextBox tb = new TextBox() { Width = (int)(360 * scale), Font = UITheme.GetFont(10.5f) };
+        Label lbl = new Label();
+        lbl.Text = label;
+        lbl.AutoSize = true;
+        lbl.Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale));
+        lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        container.Controls.Add(lbl);
+
+        TextBox tb = new TextBox();
+        tb.Width = (int)(360 * scale);
+        tb.Font = UITheme.GetFont(10.5f);
         container.Controls.Add(tb);
         return tb;
     }
 
     private TextBox AddPathRow(FlowLayoutPanel container, string label) {
-        container.Controls.Add(new Label() { Text = label, AutoSize = true, Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale)), Font = UITheme.GetFont(10.5f, FontStyle.Bold) });
-        FlowLayoutPanel row = new FlowLayoutPanel() { AutoSize = true, Margin = new Padding(0, 0, 0, (int)(10 * scale)), WrapContents = false };
-        TextBox tb = new TextBox() { Width = (int)(250 * scale), Font = UITheme.GetFont(10.5f) };
+        Label lbl = new Label();
+        lbl.Text = label;
+        lbl.AutoSize = true;
+        lbl.Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale));
+        lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        container.Controls.Add(lbl);
+
+        FlowLayoutPanel row = new FlowLayoutPanel();
+        row.AutoSize = true;
+        row.Margin = new Padding(0, 0, 0, (int)(10 * scale));
+        row.WrapContents = false;
+
+        TextBox tb = new TextBox();
+        tb.Width = (int)(250 * scale);
+        tb.Font = UITheme.GetFont(10.5f);
         
-        Button btnSel = new Button() { Text = "選", Width = (int)(45 * scale), Height = (int)(32 * scale), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = UITheme.CardWhite, Font = UITheme.GetFont(9.5f) };
+        Button btnSel = new Button();
+        btnSel.Text = "選";
+        btnSel.Width = (int)(45 * scale);
+        btnSel.Height = (int)(32 * scale);
+        btnSel.FlatStyle = FlatStyle.Flat;
+        btnSel.Cursor = Cursors.Hand;
+        btnSel.BackColor = UITheme.CardWhite;
+        btnSel.Font = UITheme.GetFont(9.5f);
         btnSel.FlatAppearance.BorderColor = Color.LightGray;
         btnSel.Click += (s, e) => { using(FolderBrowserDialog fbd = new FolderBrowserDialog()) { if(fbd.ShowDialog() == DialogResult.OK) tb.Text = fbd.SelectedPath; } };
         
-        Button btnPaste = new Button() { Text = "貼", Width = (int)(45 * scale), Height = (int)(32 * scale), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, BackColor = UITheme.CardWhite, Font = UITheme.GetFont(9.5f) };
+        Button btnPaste = new Button();
+        btnPaste.Text = "貼";
+        btnPaste.Width = (int)(45 * scale);
+        btnPaste.Height = (int)(32 * scale);
+        btnPaste.FlatStyle = FlatStyle.Flat;
+        btnPaste.Cursor = Cursors.Hand;
+        btnPaste.BackColor = UITheme.CardWhite;
+        btnPaste.Font = UITheme.GetFont(9.5f);
         btnPaste.FlatAppearance.BorderColor = Color.LightGray;
         btnPaste.Click += (s, e) => { string p = Clipboard.GetText().Trim(' ', '\"'); if (!string.IsNullOrEmpty(p)) tb.Text = p; };
         
-        row.Controls.Add(tb); row.Controls.Add(btnSel); row.Controls.Add(btnPaste);
+        row.Controls.Add(tb); 
+        row.Controls.Add(btnSel); 
+        row.Controls.Add(btnPaste);
         container.Controls.Add(row);
+
         return tb;
     }
 
     private ComboBox AddComboRow(FlowLayoutPanel container, string label, string[] items) {
-        container.Controls.Add(new Label() { Text = label, AutoSize = true, Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale)), Font = UITheme.GetFont(10.5f, FontStyle.Bold) });
-        ComboBox cb = new ComboBox() { Width = (int)(360 * scale), Font = UITheme.GetFont(10.5f), DropDownStyle = ComboBoxStyle.DropDownList };
+        Label lbl = new Label();
+        lbl.Text = label;
+        lbl.AutoSize = true;
+        lbl.Margin = new Padding(0, (int)(8 * scale), 0, (int)(3 * scale));
+        lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        container.Controls.Add(lbl);
+
+        ComboBox cb = new ComboBox();
+        cb.Width = (int)(360 * scale);
+        cb.Font = UITheme.GetFont(10.5f);
+        cb.DropDownStyle = ComboBoxStyle.DropDownList;
         cb.Items.AddRange(items);
+
         if (items.Length > 0) cb.SelectedIndex = 0;
         container.Controls.Add(cb);
         return cb;
@@ -597,16 +686,21 @@ public class MonitorListWindow : Form {
         this.BackColor = UITheme.BgGray;
         this.TopMost = true; 
 
-        flow = new FlowLayoutPanel() { 
-            Dock = DockStyle.Fill, AutoScroll = true, 
-            FlowDirection = FlowDirection.TopDown, WrapContents = false, 
-            Padding = new Padding((int)(15 * scale)) 
-        };
+        flow = new FlowLayoutPanel();
+        flow.Dock = DockStyle.Fill;
+        flow.AutoScroll = true;
+        flow.FlowDirection = FlowDirection.TopDown;
+        flow.WrapContents = false;
+        flow.Padding = new Padding((int)(15 * scale));
         
         flow.Resize += (s, e) => {
             int w = flow.ClientSize.Width - (int)(30 * scale);
             if (w > 0) {
-                foreach (Control c in flow.Controls) if (c is Panel) c.Width = w;
+                flow.SuspendLayout(); // 【優化】避免縮放卡頓
+                foreach (Control c in flow.Controls) {
+                    if (c is Panel) c.Width = w;
+                }
+                flow.ResumeLayout(true);
             }
         };
         
@@ -619,7 +713,13 @@ public class MonitorListWindow : Form {
         var pairs = parentWatcher.GetPathPairs();
         
         if (pairs.Count == 0) {
-            flow.Controls.Add(new Label() { Text = "目前沒有任何監控任務。", AutoSize = true, Margin = new Padding((int)(10 * scale)), Font = UITheme.GetFont(11f), ForeColor = UITheme.TextMain });
+            Label noDataLbl = new Label();
+            noDataLbl.Text = "目前沒有任何監控任務。";
+            noDataLbl.AutoSize = true;
+            noDataLbl.Margin = new Padding((int)(10 * scale));
+            noDataLbl.Font = UITheme.GetFont(11f);
+            noDataLbl.ForeColor = UITheme.TextMain;
+            flow.Controls.Add(noDataLbl);
             return;
         }
 
@@ -632,12 +732,12 @@ public class MonitorListWindow : Form {
 
             string destDisplay = parts[1].Replace("|", "\n=> ");
 
-            // 【修改需求】：清單視窗卡片底部間距改為 3 * scale
-            Panel card = new Panel() { 
-                AutoSize = true, MinimumSize = new Size(0, (int)(70 * scale)), 
-                BackColor = UITheme.CardWhite, Margin = new Padding(0, 0, 0, (int)(3 * scale)), 
-                Padding = new Padding((int)(12 * scale)) 
-            };
+            Panel card = new Panel();
+            card.AutoSize = true;
+            card.MinimumSize = new Size(0, (int)(70 * scale));
+            card.BackColor = UITheme.CardWhite;
+            card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
+            card.Padding = new Padding((int)(12 * scale));
             card.Width = flow.ClientSize.Width > (int)(30 * scale) ? flow.ClientSize.Width - (int)(30 * scale) : (int)(400 * scale);
             
             card.Paint += (s, ev) => {
@@ -648,45 +748,68 @@ public class MonitorListWindow : Form {
                 }
             };
 
-            TableLayoutPanel tlp = new TableLayoutPanel() { 
-                Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, AutoSize = true, BackColor = Color.Transparent 
-            };
+            TableLayoutPanel tlp = new TableLayoutPanel();
+            tlp.Dock = DockStyle.Fill;
+            tlp.ColumnCount = 2;
+            tlp.RowCount = 1;
+            tlp.AutoSize = true;
+            tlp.BackColor = Color.Transparent;
+
             tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(130 * scale)));
 
-            Label lbl = new Label() { 
-                Text = displayName + "\n=> " + destDisplay, 
-                Dock = DockStyle.Fill, AutoSize = true, Font = UITheme.GetFont(10.5f), ForeColor = UITheme.TextMain,
-                Padding = new Padding(0, 0, 0, (int)(5 * scale))
-            };
+            Label lbl = new Label();
+            lbl.Text = displayName + "\n=> " + destDisplay;
+            lbl.Dock = DockStyle.Fill;
+            lbl.AutoSize = true;
+            lbl.Font = UITheme.GetFont(10.5f);
+            lbl.ForeColor = UITheme.TextMain;
+            lbl.Padding = new Padding(0, 0, 0, (int)(5 * scale));
             
-            FlowLayoutPanel btnPanel = new FlowLayoutPanel() { 
-                Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0) 
-            };
+            FlowLayoutPanel btnPanel = new FlowLayoutPanel();
+            btnPanel.Dock = DockStyle.Fill;
+            btnPanel.FlowDirection = FlowDirection.LeftToRight;
+            btnPanel.WrapContents = false;
+            btnPanel.Margin = new Padding(0);
             
-            Button btnEdit = new Button() { 
-                Text = "編輯", Width = (int)(55 * scale), Height = (int)(35 * scale), 
-                BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, 
-                FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UITheme.GetFont(10f, FontStyle.Bold)
-            };
+            Button btnEdit = new Button();
+            btnEdit.Text = "編輯";
+            btnEdit.Width = (int)(55 * scale);
+            btnEdit.Height = (int)(35 * scale);
+            btnEdit.BackColor = UITheme.AppleBlue;
+            btnEdit.ForeColor = UITheme.CardWhite;
+            btnEdit.FlatStyle = FlatStyle.Flat;
+            btnEdit.Cursor = Cursors.Hand;
+            btnEdit.Font = UITheme.GetFont(10f, FontStyle.Bold);
             btnEdit.FlatAppearance.BorderSize = 0;
+
             btnEdit.Click += (s, e) => { new MonitorSettingsWindow(parentWatcher, key, parts).Show(); this.Close(); };
             
-            Button btnDel = new Button() { 
-                Text = "刪除", Width = (int)(55 * scale), Height = (int)(35 * scale), 
-                BackColor = UITheme.AppleRed, ForeColor = UITheme.CardWhite, 
-                FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UITheme.GetFont(10f, FontStyle.Bold)
-            };
+            Button btnDel = new Button();
+            btnDel.Text = "刪除";
+            btnDel.Width = (int)(55 * scale);
+            btnDel.Height = (int)(35 * scale);
+            btnDel.BackColor = UITheme.AppleRed;
+            btnDel.ForeColor = UITheme.CardWhite;
+            btnDel.FlatStyle = FlatStyle.Flat;
+            btnDel.Cursor = Cursors.Hand;
+            btnDel.Font = UITheme.GetFont(10f, FontStyle.Bold);
             btnDel.FlatAppearance.BorderSize = 0;
+
             btnDel.Click += (s, e) => {
                 if (MessageBox.Show("確定要刪除此監控任務嗎？", "確認刪除", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) {
                     parentWatcher.DeleteTask(key); RefreshList();
                 }
             };
             
-            btnPanel.Controls.Add(btnEdit); btnPanel.Controls.Add(btnDel);
-            tlp.Controls.Add(lbl, 0, 0); tlp.Controls.Add(btnPanel, 1, 0);
-            card.Controls.Add(tlp); flow.Controls.Add(card);
+            btnPanel.Controls.Add(btnEdit); 
+            btnPanel.Controls.Add(btnDel);
+
+            tlp.Controls.Add(lbl, 0, 0); 
+            tlp.Controls.Add(btnPanel, 1, 0);
+
+            card.Controls.Add(tlp); 
+            flow.Controls.Add(card);
         }
     }
 }
