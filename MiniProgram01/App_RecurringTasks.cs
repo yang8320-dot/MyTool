@@ -1407,85 +1407,87 @@ public class AllTasksViewWindow : Form {
             sfd.FileName = $"週期任務總覽_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
             if (sfd.ShowDialog() == DialogResult.OK) {
-                PrintDocument pd = new PrintDocument();
-                pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
-                pd.PrinterSettings.PrintToFile = true;
-                pd.PrinterSettings.PrintFileName = sfd.FileName;
+                // 【修正】加入 using 確保列印資源用完立刻徹底釋放關閉
+                using (PrintDocument pd = new PrintDocument()) {
+                    pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
+                    pd.PrinterSettings.PrintToFile = true;
+                    pd.PrinterSettings.PrintFileName = sfd.FileName;
 
-                int currentLine = 0;
-                Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
-                Font headerFont = UITheme.GetFont(12f, FontStyle.Bold);
-                Font txtFont = UITheme.GetFont(10f);
-                Font noteFont = UITheme.GetFont(9f);
+                    int currentLine = 0;
+                    Font titleFont = UITheme.GetFont(18f, FontStyle.Bold);
+                    Font headerFont = UITheme.GetFont(12f, FontStyle.Bold);
+                    Font txtFont = UITheme.GetFont(10f);
+                    Font noteFont = UITheme.GetFont(9f);
 
-                var tasks = parentControl.tasks;
-                
-                List<Tuple<string, Font, Brush>> lines = new List<Tuple<string, Font, Brush>>();
-                lines.Add(new Tuple<string, Font, Brush>("週期任務排程總覽", titleFont, Brushes.Black));
-                lines.Add(new Tuple<string, Font, Brush>("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), txtFont, Brushes.Gray));
-                lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
-
-                Action<string, List<App_RecurringTasks.RecurringTask>> addGroup = (title, list) => {
-                    if (list.Count == 0) return;
-                    lines.Add(new Tuple<string, Font, Brush>("【 " + title + " 】", headerFont, Brushes.Blue));
-                    foreach (var t in list) {
-                        string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
-                        string mainTxt = $"[{t.TaskType}] {timeInfo}  {t.Name}";
-                        lines.Add(new Tuple<string, Font, Brush>(mainTxt, txtFont, Brushes.Black));
-                        
-                        if (!string.IsNullOrWhiteSpace(t.Note)) {
-                            string notePrefix = "   備註:\n      ";
-                            string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
-                            lines.Add(new Tuple<string, Font, Brush>(formattedNote, noteFont, Brushes.DimGray));
-                        }
-                    }
+                    var tasks = parentControl.tasks;
+                    
+                    List<Tuple<string, Font, Brush>> lines = new List<Tuple<string, Font, Brush>>();
+                    lines.Add(new Tuple<string, Font, Brush>("週期任務排程總覽", titleFont, Brushes.Black));
+                    lines.Add(new Tuple<string, Font, Brush>("產生時間: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), txtFont, Brushes.Gray));
                     lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
-                };
 
-                List<App_RecurringTasks.RecurringTask> dailyList = tasks.Where(t => t.MonthStr == "每天").ToList();
-                addGroup("每天觸發", dailyList);
-                
-                List<App_RecurringTasks.RecurringTask> weeklyList = tasks.Where(t => t.MonthStr == "每週").ToList();
-                addGroup("每週觸發", weeklyList);
-                
-                List<App_RecurringTasks.RecurringTask> monthlyList = tasks.Where(t => t.MonthStr == "每月").ToList();
-                addGroup("每月觸發", monthlyList);
-                
-                for (int i = 1; i <= 12; i++) {
-                    string monthTarget = i.ToString() + "月";
-                    List<App_RecurringTasks.RecurringTask> monthSpecList = tasks.Where(t => t.MonthStr == monthTarget).ToList();
-                    addGroup(i.ToString() + "月 限定", monthSpecList);
-                }
-                
-                List<App_RecurringTasks.RecurringTask> specificList = tasks.Where(t => t.MonthStr == "特定日期").ToList();
-                addGroup("特定日期 (單次/到期日)", specificList);
-
-                pd.PrintPage += (sender, args) => {
-                    float yPos = args.MarginBounds.Top;
-                    float leftMargin = args.MarginBounds.Left;
-
-                    while (currentLine < lines.Count) {
-                        var item = lines[currentLine];
-                        SizeF size = args.Graphics.MeasureString(item.Item1, item.Item2, args.MarginBounds.Width);
-                        
-                        if (yPos + size.Height > args.MarginBounds.Bottom) {
-                            args.HasMorePages = true;
-                            return; 
+                    Action<string, List<App_RecurringTasks.RecurringTask>> addGroup = (title, list) => {
+                        if (list.Count == 0) return;
+                        lines.Add(new Tuple<string, Font, Brush>("【 " + title + " 】", headerFont, Brushes.Blue));
+                        foreach (var t in list) {
+                            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
+                            string mainTxt = $"[{t.TaskType}] {timeInfo}  {t.Name}";
+                            lines.Add(new Tuple<string, Font, Brush>(mainTxt, txtFont, Brushes.Black));
+                            
+                            if (!string.IsNullOrWhiteSpace(t.Note)) {
+                                string notePrefix = "   備註:\n      ";
+                                string formattedNote = notePrefix + t.Note.Replace("\n", "\n      ");
+                                lines.Add(new Tuple<string, Font, Brush>(formattedNote, noteFont, Brushes.DimGray));
+                            }
                         }
+                        lines.Add(new Tuple<string, Font, Brush>(" ", txtFont, Brushes.Black));
+                    };
 
-                        args.Graphics.DrawString(item.Item1, item.Item2, item.Item3, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
-                        yPos += size.Height + 5; 
-                        currentLine++;
+                    List<App_RecurringTasks.RecurringTask> dailyList = tasks.Where(t => t.MonthStr == "每天").ToList();
+                    addGroup("每天觸發", dailyList);
+                    
+                    List<App_RecurringTasks.RecurringTask> weeklyList = tasks.Where(t => t.MonthStr == "每週").ToList();
+                    addGroup("每週觸發", weeklyList);
+                    
+                    List<App_RecurringTasks.RecurringTask> monthlyList = tasks.Where(t => t.MonthStr == "每月").ToList();
+                    addGroup("每月觸發", monthlyList);
+                    
+                    for (int i = 1; i <= 12; i++) {
+                        string monthTarget = i.ToString() + "月";
+                        List<App_RecurringTasks.RecurringTask> monthSpecList = tasks.Where(t => t.MonthStr == monthTarget).ToList();
+                        addGroup(i.ToString() + "月 限定", monthSpecList);
                     }
-                    args.HasMorePages = false;
-                };
+                    
+                    List<App_RecurringTasks.RecurringTask> specificList = tasks.Where(t => t.MonthStr == "特定日期").ToList();
+                    addGroup("特定日期 (單次/到期日)", specificList);
 
-                try {
-                    pd.Print();
-                    MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                } catch (Exception ex) {
-                    MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                    pd.PrintPage += (sender, args) => {
+                        float yPos = args.MarginBounds.Top;
+                        float leftMargin = args.MarginBounds.Left;
+
+                        while (currentLine < lines.Count) {
+                            var item = lines[currentLine];
+                            SizeF size = args.Graphics.MeasureString(item.Item1, item.Item2, args.MarginBounds.Width);
+                            
+                            if (yPos + size.Height > args.MarginBounds.Bottom) {
+                                args.HasMorePages = true;
+                                return; 
+                            }
+
+                            args.Graphics.DrawString(item.Item1, item.Item2, item.Item3, new RectangleF(leftMargin, yPos, args.MarginBounds.Width, size.Height));
+                            yPos += size.Height + 5; 
+                            currentLine++;
+                        }
+                        args.HasMorePages = false;
+                    };
+
+                    try {
+                        pd.Print();
+                        MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    } catch (Exception ex) {
+                        MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                } // 離開 using 區塊時自動 Dispose，防堵任何記憶體或執行緒洩漏
             }
         }
     }
