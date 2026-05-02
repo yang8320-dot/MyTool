@@ -1267,7 +1267,7 @@ public class AllTasksViewWindow : Form {
                 try {
                     using (var workbook = new XLWorkbook()) {
                         var mainSheet = workbook.Worksheets.Add("週期任務清單");
-                        var dataSheet = workbook.Worksheets.Add("系統參數_勿刪");
+                        var dataSheet = workbook.Worksheets.Add("DataValidation");
                         dataSheet.Hide(); 
 
                         List<string> times = new List<string>();
@@ -1282,6 +1282,16 @@ public class AllTasksViewWindow : Form {
                         string[] dateArr = "每日,一,二,三,四,五,六,日,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,月底".Split(',');
                         for (int i = 0; i < dateArr.Length; i++) {
                             dataSheet.Cell(i + 1, 2).Value = dateArr[i];
+                        }
+
+                        string[] typeArr = {"循環", "單次", "到期日"};
+                        for (int i = 0; i < typeArr.Length; i++) {
+                            dataSheet.Cell(i + 1, 3).Value = typeArr[i];
+                        }
+
+                        string[] cycleArr = "每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期".Split(',');
+                        for (int i = 0; i < cycleArr.Length; i++) {
+                            dataSheet.Cell(i + 1, 4).Value = cycleArr[i];
                         }
 
                         mainSheet.Cell(1, 1).Value = "任務名稱";
@@ -1314,25 +1324,32 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
+                        // 【完美修復】全部寫入隱藏工作表，使用標準 Excel 公式，並嚴格加上 XLAllowedValues.List 防止 XML 損毀
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
-                        valB.List("循環,單次,到期日", true);
+                        valB.AllowedValues = XLAllowedValues.List;
+                        valB.List($"=DataValidation!$C$1:$C${typeArr.Length}");
+                        valB.InCellDropdown = true;
                         valB.ShowErrorMessage = false;
 
                         var valC = mainSheet.Range($"C2:C{maxValRow}").CreateDataValidation();
-                        valC.List("每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期", true);
+                        valC.AllowedValues = XLAllowedValues.List;
+                        valC.List($"=DataValidation!$D$1:$D${cycleArr.Length}");
+                        valC.InCellDropdown = true;
                         valC.ShowErrorMessage = false;
 
-                        // 【修復】使用範圍物件 (IXLRange) 而不是字串公式，解決 Excel 開啟報錯問題
-                        var dateRangeObj = dataSheet.Range(1, 2, dateArr.Length, 2);
                         var valD = mainSheet.Range($"D2:D{maxValRow}").CreateDataValidation();
-                        valD.List(dateRangeObj);
+                        valD.AllowedValues = XLAllowedValues.List;
+                        valD.List($"=DataValidation!$B$1:$B${dateArr.Length}");
+                        valD.InCellDropdown = true;
                         valD.ShowErrorMessage = false;
 
-                        var timeRangeObj = dataSheet.Range(1, 1, times.Count, 1);
                         var valE = mainSheet.Range($"E2:E{maxValRow}").CreateDataValidation();
-                        valE.List(timeRangeObj);
+                        valE.AllowedValues = XLAllowedValues.List;
+                        valE.List($"=DataValidation!$A$1:$A${times.Count}");
+                        valE.InCellDropdown = true;
                         valE.ShowErrorMessage = false;
 
+                        mainSheet.Activate();
                         workbook.SaveAs(sfd.FileName);
                         MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
