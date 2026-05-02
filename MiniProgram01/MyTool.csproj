@@ -1,32 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- 設定為 Windows 應用程式 (不會彈出黑色的 Console 視窗) -->
     <OutputType>WinExe</OutputType>
-    
-    <!-- 指定使用 .NET 8.0 以及 Windows 專屬 API -->
     <TargetFramework>net8.0-windows</TargetFramework>
-    
-    <!-- 啟用 Windows Forms 支援 -->
     <UseWindowsForms>true</UseWindowsForms>
-    
-    <!-- 關閉可 Null 參考型別警告 -->
     <Nullable>disable</Nullable>
-    
-    <!-- 啟用隱式 using 指令 -->
     <ImplicitUsings>enable</ImplicitUsings>
-
-    <!-- 程式輸出的執行檔名稱與內部命名空間 (已改為 MyTool) -->
     <AssemblyName>MyTool</AssemblyName>
     <RootNamespace>MyTool</RootNamespace>
-
-    <!-- 如果您有專屬的程式圖示 (ico)，請將圖示放在專案根目錄，並取消註解下面這行 -->
-    <!-- <ApplicationIcon>app.ico</ApplicationIcon> -->
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 引入 Microsoft 官方的 SQLite 資料庫套件 -->
+    <!-- SQLite 資料庫套件 -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <!-- 【新增】超高效、不依賴本地 Office 的 Excel 處理套件 -->
+    <PackageReference Include="ClosedXML" Version="0.102.2" />
   </ItemGroup>
 
 </Project>
