@@ -252,11 +252,24 @@ public class MainForm : Form {
     }
 
     private void SetRunOnStartup(bool enable) {
-        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
-            if (enable) key.SetValue(appName, Application.ExecutablePath);
-            else key.DeleteValue(appName, false);
+    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
+        if (enable) {
+            // 原本是 Application.ExecutablePath (這會指向 Library/MyTool.exe)
+            // 修改為指向外層的啟動器路徑
+            string launcherPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "MyTool.exe");
+            // 取得絕對路徑並確認檔案存在
+            launcherPath = Path.GetFullPath(launcherPath); 
+            
+            if (File.Exists(launcherPath)) {
+                key.SetValue(appName, launcherPath);
+            } else {
+                // 如果找不到外層啟動器(例如開發環境)，就用目前的
+                key.SetValue(appName, Application.ExecutablePath);
+            }
         }
+        else key.DeleteValue(appName, false);
     }
+}
 
     protected override void WndProc(ref Message m) {
         if (m.Msg == WM_HOTKEY) {
