@@ -1,6 +1,6 @@
-============================================================
-/// FILE: MiniProgram01/App_RecurringTasks.cs ///
-============================================================
+// ============================================================
+// FILE: MiniProgram01/App_RecurringTasks.cs 
+// ============================================================
 
 using System;
 using System.Collections.Generic;
@@ -245,7 +245,6 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
-    // --- 【新增】Excel 專用：批次判斷是否重複，覆蓋或新增 (使用 SQLite Transaction 加速) ---
     public Tuple<int, int> BulkImportOrUpdate(List<RecurringTask> importedData) {
         int addedCount = 0;
         int updatedCount = 0;
@@ -254,7 +253,6 @@ public class App_RecurringTasks : UserControl {
             conn.Open();
             using (var transaction = conn.BeginTransaction()) {
                 foreach (var t in importedData) {
-                    // 根據 名稱 與 週期月份 來判斷是否已經存在
                     string checkSql = "SELECT Id FROM RecurringTasks WHERE Name=@N AND MonthStr=@M";
                     int existingId = -1;
                     using (var cmd = new SqliteCommand(checkSql, conn, transaction)) {
@@ -265,7 +263,6 @@ public class App_RecurringTasks : UserControl {
                     }
 
                     if (existingId != -1) {
-                        // 【存在】：直接覆蓋 日期、時間、類型與備註
                         string updateSql = "UPDATE RecurringTasks SET DateStr=@D, TimeStr=@T, TaskType=@Ty, Note=@No WHERE Id=@Id";
                         using (var cmd = new SqliteCommand(updateSql, conn, transaction)) {
                             cmd.Parameters.AddWithValue("@D", t.DateStr);
@@ -277,7 +274,6 @@ public class App_RecurringTasks : UserControl {
                         }
                         updatedCount++;
                     } else {
-                        // 【不存在】：建立全新任務，賦予新的排序
                         string getOrderSql = "SELECT COALESCE(MAX(OrderIndex), 0) + 1 FROM RecurringTasks";
                         int nextOrder = 0;
                         using (var cmd = new SqliteCommand(getOrderSql, conn, transaction)) {
@@ -301,7 +297,7 @@ public class App_RecurringTasks : UserControl {
                 transaction.Commit();
             }
         }
-        LoadTasksFromDb(); // 處理完後，主畫面只重新整理一次
+        LoadTasksFromDb(); 
         return new Tuple<int, int>(addedCount, updatedCount);
     }
 
@@ -386,7 +382,6 @@ public class App_RecurringTasks : UserControl {
             string[] timeParts = t.TimeStr.Split(':');
             int h = int.Parse(timeParts[0]); int m = int.Parse(timeParts[1]);
 
-            // 1. 單次特定日期
             if (t.MonthStr == "特定日期") {
                 if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
                     target = new DateTime(specificDate.Year, specificDate.Month, specificDate.Day, h, m, 0);
@@ -395,17 +390,14 @@ public class App_RecurringTasks : UserControl {
                 return false;
             }
 
-            // 2. 每天觸發
             if (t.MonthStr == "每天") {
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
-                // 如果今天已經觸發過且時間已過，才推算到明天
                 if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
                     target = target.AddDays(1);
                 }
                 return true;
             }
             
-            // 3. 每週觸發
             if (t.MonthStr == "每週") {
                 Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek> {
                     {"一", DayOfWeek.Monday}, {"二", DayOfWeek.Tuesday}, {"三", DayOfWeek.Wednesday},
@@ -413,18 +405,15 @@ public class App_RecurringTasks : UserControl {
                 };
                 if (!dow.ContainsKey(t.DateStr)) return false;
                 
-                // 找出本週的目標星期幾
                 int diff = dow[t.DateStr] - now.DayOfWeek;
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0).AddDays(diff);
                 
-                // 如果本週時間已過且已觸發，則推算至下週
                 if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
                     target = target.AddDays(7);
                 }
                 return true;
             }
             
-            // 4. 每月或特定月份觸發
             if (t.MonthStr == "每月" || t.MonthStr.EndsWith("月")) {
                 int month = t.MonthStr == "每月" ? now.Month : int.Parse(t.MonthStr.Replace("月",""));
                 int day = (t.DateStr == "月底") ? DateTime.DaysInMonth(now.Year, month) : int.Parse(t.DateStr);
@@ -432,14 +421,13 @@ public class App_RecurringTasks : UserControl {
                 
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
                 
-                // 如果本週期已過且已觸發，推算至下一週期
                 if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
                     if (t.MonthStr == "每月") {
                         target = target.AddMonths(1);
                         validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, target.Month));
                         target = new DateTime(target.Year, target.Month, validDay, h, m, 0);
                     } else {
-                        target = target.AddYears(1); // 特定月份推至明年
+                        target = target.AddYears(1); 
                     }
                 }
                 return true;
@@ -704,7 +692,6 @@ public class AllTasksViewWindow : Form {
         this.BackColor = UITheme.BgGray;
         this.TopMost = true; 
 
-        // --- 標題列與功能按鈕 ---
         TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(70 * scale), BackColor = UITheme.CardWhite, ColumnCount = 4 };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
@@ -739,9 +726,6 @@ public class AllTasksViewWindow : Form {
         this.Controls.Add(flow); flow.BringToFront(); RefreshData();
     }
 
-    // ---------------------------------------------
-    // Excel 匯出功能 
-    // ---------------------------------------------
     private void ExecuteExportExcel() {
         Type excelType = Type.GetTypeFromProgID("Excel.Application");
         if (excelType == null) {
@@ -796,9 +780,6 @@ public class AllTasksViewWindow : Form {
         }
     }
 
-    // ---------------------------------------------
-    // Excel 匯入功能 (具備覆蓋更新機制)
-    // ---------------------------------------------
     private void ExecuteImportExcel() {
         Type excelType = Type.GetTypeFromProgID("Excel.Application");
         if (excelType == null) {
@@ -836,7 +817,6 @@ public class AllTasksViewWindow : Form {
                         });
                     }
 
-                    // 呼叫底層批次更新模組，回傳 Tuple<新增數量, 更新數量>
                     var resultStats = parentControl.BulkImportOrUpdate(importList);
 
                     MessageBox.Show(
