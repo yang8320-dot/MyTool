@@ -10,7 +10,7 @@ using System.Linq;
 using System.Drawing.Printing;
 using Microsoft.Data.Sqlite;
 using System.Threading;
-using ClosedXML.Excel; // 【新增】高效能 Excel 處理套件
+using ClosedXML.Excel; 
 
 public class App_RecurringTasks : UserControl {
     private MainForm parentForm;
@@ -1131,19 +1131,20 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
-                        var valB = mainSheet.Range($"B2:B{maxValRow}").SetDataValidation();
+                        // 【修正】使用 CreateDataValidation() 解決編譯警告
+                        var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.List("循環,單次,到期日", true);
                         valB.ShowErrorMessage = false;
 
-                        var valC = mainSheet.Range($"C2:C{maxValRow}").SetDataValidation();
+                        var valC = mainSheet.Range($"C2:C{maxValRow}").CreateDataValidation();
                         valC.List("每天,每週,每月,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月,特定日期", true);
                         valC.ShowErrorMessage = false;
 
-                        var valD = mainSheet.Range($"D2:D{maxValRow}").SetDataValidation();
+                        var valD = mainSheet.Range($"D2:D{maxValRow}").CreateDataValidation();
                         valD.List($"='系統參數_勿刪'!$B$1:$B${dateArr.Length}");
                         valD.ShowErrorMessage = false;
 
-                        var valE = mainSheet.Range($"E2:E{maxValRow}").SetDataValidation();
+                        var valE = mainSheet.Range($"E2:E{maxValRow}").CreateDataValidation();
                         valE.List($"='系統參數_勿刪'!$A$1:$A${times.Count}");
                         valE.ShowErrorMessage = false;
 
