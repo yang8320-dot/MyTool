@@ -443,18 +443,25 @@ public class App_RecurringTasks : UserControl {
         foreach (var t in tasks) {
             DateTime target;
             if (TryGetNextTriggerTime(t, now, out target)) {
+                // 如果有設定提前天數，就把觸發門檻往前推
                 DateTime triggerThreshold = target.AddDays(-advanceDays);
+                
+                // 【核心修正】只要現在時間已經跨過了觸發門檻，就該處理
                 if (now >= triggerThreshold) {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
+                    
+                    // 防重複機制：確認這個目標日期是否已經被觸發過
                     if (t.LastTriggeredDate != targetDateStr) {
                         string prefix = advanceDays > 0 ? $"[預排-{target:MM/dd}] " : "";
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
+                        // 記錄已觸發
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
                         parentForm.AlertTab(1); 
                         
-                        if (t.TaskType == "單次" || t.TaskType == "到期日") {
+                        // 【修正】只要是特定日期（非循環），推播後就加入待刪除清單
+                        if (t.TaskType == "單次" || t.TaskType == "到期日" || t.MonthStr == "特定日期") {
                             toRemove.Add(t);
                         }
                     }
