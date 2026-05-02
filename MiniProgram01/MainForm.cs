@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: MiniProgram01/MainForm.cs 
+// ============================================================
+
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -25,13 +29,11 @@ public class MainForm : Form {
     private const int HOTKEY_ID = 9000;         // Ctrl+1: 喚醒視窗
     private const int HOTKEY_IMAGE_ID = 9001;   // Ctrl+2: 圖片小工具
     private const int HOTKEY_SAFETY_ID = 9002;  // Ctrl+3: Safety System
-    private const int HOTKEY_GTASK_ID = 9008;   // Ctrl+9: G-Task
 
     private const uint MOD_CONTROL = 0x0002;
     private const uint VK_1 = 0x31; 
     private const uint VK_2 = 0x32; 
     private const uint VK_3 = 0x33;
-    private const uint VK_9 = 0x39;
     private const int WM_HOTKEY = 0x0312;
 
     // 用於儲存捷徑路徑的設定
@@ -40,7 +42,7 @@ public class MainForm : Form {
     public App_FileWatcher fileWatcherApp;
     public App_TodoList todoApp;
     public App_TodoList planApp; 
-    public App_TodoList scheduleApp; // 【新增】：行程清單
+    public App_TodoList scheduleApp; 
     public App_RecurringTasks recurringApp;
     public App_Shortcuts shortcutsApp;
     public App_Screenshot screenshotApp;
@@ -74,7 +76,6 @@ public class MainForm : Form {
         trayMenu.Items.Add("顯示主視窗 (Ctrl+1)", null, (s, e) => ShowAppWindow());
         trayMenu.Items.Add("圖片小工具 (Ctrl+2)", null, (s, e) => LaunchExternalApp(HOTKEY_IMAGE_ID));
         trayMenu.Items.Add("啟動 Safety System (Ctrl+3)", null, (s, e) => LaunchExternalApp(HOTKEY_SAFETY_ID));
-        trayMenu.Items.Add("啟動 G-Task (Ctrl+9)", null, (s, e) => LaunchExternalApp(HOTKEY_GTASK_ID));
         
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("快捷鍵程式設定", null, (s, e) => OpenPathSettingsWindow());
@@ -92,13 +93,11 @@ public class MainForm : Form {
         RegisterHotKey(this.Handle, HOTKEY_ID, MOD_CONTROL, VK_1);
         RegisterHotKey(this.Handle, HOTKEY_IMAGE_ID, MOD_CONTROL, VK_2);
         RegisterHotKey(this.Handle, HOTKEY_SAFETY_ID, MOD_CONTROL, VK_3); 
-        RegisterHotKey(this.Handle, HOTKEY_GTASK_ID, MOD_CONTROL, VK_9); 
 
         // --- 初始化 TabControl (iOS 風格) ---
         tabControl = new TabControl();
         tabControl.Dock = DockStyle.Fill;
         tabControl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
-        // 【修改】：DPI 動態調整 Tab 大小，將寬度從 82 縮小到 68 以塞入第七個分頁
         tabControl.ItemSize = new Size((int)(68 * scale), (int)(38 * scale));
         tabControl.Padding = new Point(0, 0);
         tabControl.SizeMode = TabSizeMode.Fixed; 
@@ -114,9 +113,9 @@ public class MainForm : Form {
         fileWatcherApp = new App_FileWatcher(this, trayMenu);
         todoApp = new App_TodoList(this, "todo", "待辦清單");
         planApp = new App_TodoList(this, "plan", "待規清單");
-        scheduleApp = new App_TodoList(this, "schedule", "行程清單"); // 【新增】：行程清單初始化
+        scheduleApp = new App_TodoList(this, "schedule", "行程清單"); 
         
-        // 【修改】：設定三個清單之間的互連動態選單
+        // 設定三個清單之間的互連動態選單
         todoApp.TargetLists.Add("待規", planApp);
         todoApp.TargetLists.Add("行程", scheduleApp);
         
@@ -133,7 +132,7 @@ public class MainForm : Form {
         fileWatcherApp.Dock = DockStyle.Fill;
         todoApp.Dock = DockStyle.Fill;
         planApp.Dock = DockStyle.Fill;
-        scheduleApp.Dock = DockStyle.Fill; // 【新增】
+        scheduleApp.Dock = DockStyle.Fill; 
         recurringApp.Dock = DockStyle.Fill;
         shortcutsApp.Dock = DockStyle.Fill;
         screenshotApp.Dock = DockStyle.Fill;
@@ -141,7 +140,7 @@ public class MainForm : Form {
         tabControl.TabPages.Add(new TabPage("監控") { BackColor = UITheme.BgGray }); // 0
         tabControl.TabPages.Add(new TabPage("待辦") { BackColor = UITheme.BgGray }); // 1
         tabControl.TabPages.Add(new TabPage("待規") { BackColor = UITheme.BgGray }); // 2
-        tabControl.TabPages.Add(new TabPage("行程") { BackColor = UITheme.BgGray }); // 3 【新增】
+        tabControl.TabPages.Add(new TabPage("行程") { BackColor = UITheme.BgGray }); // 3 
         tabControl.TabPages.Add(new TabPage("週期") { BackColor = UITheme.BgGray }); // 4
         tabControl.TabPages.Add(new TabPage("捷徑") { BackColor = UITheme.BgGray }); // 5
         tabControl.TabPages.Add(new TabPage("截圖") { BackColor = UITheme.BgGray }); // 6
@@ -149,7 +148,7 @@ public class MainForm : Form {
         tabControl.TabPages[0].Controls.Add(fileWatcherApp);
         tabControl.TabPages[1].Controls.Add(todoApp);
         tabControl.TabPages[2].Controls.Add(planApp); 
-        tabControl.TabPages[3].Controls.Add(scheduleApp); // 【新增】
+        tabControl.TabPages[3].Controls.Add(scheduleApp); 
         tabControl.TabPages[4].Controls.Add(recurringApp);
         tabControl.TabPages[5].Controls.Add(shortcutsApp);
         tabControl.TabPages[6].Controls.Add(screenshotApp);
@@ -168,9 +167,12 @@ public class MainForm : Form {
 
     // --- 資料庫設定載入 ---
     private void LoadPathSettings() {
-        hotkeyPaths[HOTKEY_IMAGE_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_IMAGE_ID}", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MiniImage", "MiniImageStudio.exe"));
-        hotkeyPaths[HOTKEY_GTASK_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_GTASK_ID}", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GTask", "GTaskNexus.exe"));
-        hotkeyPaths[HOTKEY_SAFETY_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_SAFETY_ID}", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SafetySystem", "Safety_System.exe"));
+        // 主程式目前在 Library 目錄執行，所以 BaseDirectory 會是 {Root}\Library\
+        // 為了取得 {Root}\app\，我們往上一層 ".." 再進入 "app"
+        string baseAppFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "app"));
+        
+        hotkeyPaths[HOTKEY_IMAGE_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_IMAGE_ID}", Path.Combine(baseAppFolder, "MiniImage", "MiniImageStudio.exe"));
+        hotkeyPaths[HOTKEY_SAFETY_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_SAFETY_ID}", Path.Combine(baseAppFolder, "SafetySystem", "Safety_System.exe"));
     }
 
     public void SavePathSettings(Dictionary<int, string> newPaths) {
@@ -208,7 +210,6 @@ public class MainForm : Form {
         if (isSelected) {
             float scale = this.DeviceDpi / 96f;
             using (SolidBrush lineBrush = new SolidBrush(UITheme.AppleBlue)) {
-                // 因應寬度變窄，微調畫線的起始與寬度
                 e.Graphics.FillRectangle(lineBrush, e.Bounds.Left + 8, e.Bounds.Bottom - (int)(4 * scale), e.Bounds.Width - 16, (int)(4 * scale));
             }
         }
@@ -252,24 +253,23 @@ public class MainForm : Form {
     }
 
     private void SetRunOnStartup(bool enable) {
-    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
-        if (enable) {
-            // 原本是 Application.ExecutablePath (這會指向 Library/MyTool.exe)
-            // 修改為指向外層的啟動器路徑
-            string launcherPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "MyTool.exe");
-            // 取得絕對路徑並確認檔案存在
-            launcherPath = Path.GetFullPath(launcherPath); 
-            
-            if (File.Exists(launcherPath)) {
-                key.SetValue(appName, launcherPath);
-            } else {
-                // 如果找不到外層啟動器(例如開發環境)，就用目前的
-                key.SetValue(appName, Application.ExecutablePath);
+        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
+            if (enable) {
+                // 將啟動路徑設定為外層的 Launcher (MyTool.exe)
+                string launcherPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "MyTool.exe");
+                // 取得絕對路徑並確認檔案存在
+                launcherPath = Path.GetFullPath(launcherPath); 
+                
+                if (File.Exists(launcherPath)) {
+                    key.SetValue(appName, launcherPath);
+                } else {
+                    // 如果找不到外層啟動器(例如開發環境)，就用目前的
+                    key.SetValue(appName, Application.ExecutablePath);
+                }
             }
+            else key.DeleteValue(appName, false);
         }
-        else key.DeleteValue(appName, false);
     }
-}
 
     protected override void WndProc(ref Message m) {
         if (m.Msg == WM_HOTKEY) {
@@ -284,7 +284,7 @@ public class MainForm : Form {
         if (hotkeyPaths.TryGetValue(hotkeyId, out string path) && !string.IsNullOrWhiteSpace(path)) {
             try {
                 if (File.Exists(path)) {
-                    Process.Start(new ProcessStartInfo() { FileName = path, UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo() { FileName = path, UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(path) });
                 } else {
                     MessageBox.Show($"找不到程式：\n{path}\n\n請確認路徑是否正確。", "執行失敗", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
@@ -320,7 +320,6 @@ public class MainForm : Form {
             UnregisterHotKey(this.Handle, HOTKEY_ID);
             UnregisterHotKey(this.Handle, HOTKEY_IMAGE_ID);
             UnregisterHotKey(this.Handle, HOTKEY_SAFETY_ID);
-            UnregisterHotKey(this.Handle, HOTKEY_GTASK_ID);
             if (trayIcon != null) { trayIcon.Visible = false; trayIcon.Dispose(); }
             if (flashTimer != null) { flashTimer.Dispose(); }
         }
@@ -343,7 +342,7 @@ public class HotkeyPathSettingsForm : Form {
         float scale = this.DeviceDpi / 96f;
         this.Text = "快捷鍵程式路徑設定";
         this.Width = (int)(550 * scale);
-        this.Height = (int)(380 * scale);
+        this.Height = (int)(320 * scale); // 移除了一個項目，將視窗高度縮減
         this.StartPosition = FormStartPosition.CenterScreen;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
@@ -362,7 +361,6 @@ public class HotkeyPathSettingsForm : Form {
 
         AddPathSettingUI(panel, 9001, "Ctrl + 2 (圖片小工具):", scale);
         AddPathSettingUI(panel, 9002, "Ctrl + 3 (Safety System):", scale);
-        AddPathSettingUI(panel, 9008, "Ctrl + 9 (G-Task):", scale);
 
         Panel bottomPanel = new Panel() { Dock = DockStyle.Bottom, Height = (int)(70 * scale) };
         
