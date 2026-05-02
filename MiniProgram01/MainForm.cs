@@ -1,7 +1,3 @@
-// ============================================================
-// FILE: MiniProgram01/MainForm.cs 
-// ============================================================
-
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -20,15 +16,17 @@ public class MainForm : Form {
     private System.Windows.Forms.Timer flashTimer;
     private bool flashState = false;
 
-    // --- 快捷鍵相關 API 與常數 ---
+    // --- 快捷鍵與 Windows 訊息相關 API ---
     [DllImport("user32.dll")]
     private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern uint RegisterWindowMessage(string lpString);
 
-    private const int HOTKEY_ID = 9000;         // Ctrl+1: 喚醒視窗
-    private const int HOTKEY_IMAGE_ID = 9001;   // Ctrl+2: 圖片小工具
-    private const int HOTKEY_SAFETY_ID = 9002;  // Ctrl+3: Safety System
+    private const int HOTKEY_ID = 9000;         
+    private const int HOTKEY_IMAGE_ID = 9001;   
+    private const int HOTKEY_SAFETY_ID = 9002;  
 
     private const uint MOD_CONTROL = 0x0002;
     private const uint VK_1 = 0x31; 
@@ -36,7 +34,9 @@ public class MainForm : Form {
     private const uint VK_3 = 0x33;
     private const int WM_HOTKEY = 0x0312;
 
-    // 用於儲存捷徑路徑的設定
+    // 用來接收 Program.cs 發送的喚醒廣播
+    private readonly uint WM_SHOWME = RegisterWindowMessage("WM_SHOW_MINIPROGRAM01");
+
     private Dictionary<int, string> hotkeyPaths = new Dictionary<int, string>();
 
     public App_FileWatcher fileWatcherApp;
@@ -51,7 +51,6 @@ public class MainForm : Form {
         LoadPathSettings();
 
         this.Text = "整合通知中心";
-        // 動態計算 DPI 確保視窗初始大小合理
         float scale = this.DeviceDpi / 96f;
         this.Width = (int)(520 * scale); 
         this.Height = (int)(600 * scale); 
@@ -66,7 +65,6 @@ public class MainForm : Form {
         this.Left = area.Right - this.Width - 10;
         this.Top = area.Bottom - this.Height - 10;
 
-        // --- 設定常駐右鍵選單 ---
         trayMenu = new ContextMenuStrip();
         ToolStripMenuItem startupItem = new ToolStripMenuItem("開機自動啟動", null, ToggleStartup);
         startupItem.Checked = IsRunOnStartup();
@@ -89,12 +87,10 @@ public class MainForm : Form {
         trayIcon.Text = "整合通知中心";
         trayIcon.DoubleClick += (s, e) => ShowAppWindow();
 
-        // --- 註冊全域快捷鍵 ---
         RegisterHotKey(this.Handle, HOTKEY_ID, MOD_CONTROL, VK_1);
         RegisterHotKey(this.Handle, HOTKEY_IMAGE_ID, MOD_CONTROL, VK_2);
         RegisterHotKey(this.Handle, HOTKEY_SAFETY_ID, MOD_CONTROL, VK_3); 
 
-        // --- 初始化 TabControl (iOS 風格) ---
         tabControl = new TabControl();
         tabControl.Dock = DockStyle.Fill;
         tabControl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
@@ -109,19 +105,15 @@ public class MainForm : Form {
         };
         this.Controls.Add(tabControl);
 
-        // 初始化各模組
         fileWatcherApp = new App_FileWatcher(this, trayMenu);
         todoApp = new App_TodoList(this, "todo", "待辦清單");
         planApp = new App_TodoList(this, "plan", "待規清單");
         scheduleApp = new App_TodoList(this, "schedule", "行程清單"); 
         
-        // 設定三個清單之間的互連動態選單
         todoApp.TargetLists.Add("待規", planApp);
         todoApp.TargetLists.Add("行程", scheduleApp);
-        
         planApp.TargetLists.Add("待辦", todoApp);
         planApp.TargetLists.Add("行程", scheduleApp);
-        
         scheduleApp.TargetLists.Add("待辦", todoApp);
         scheduleApp.TargetLists.Add("待規", planApp);
 
@@ -137,13 +129,13 @@ public class MainForm : Form {
         shortcutsApp.Dock = DockStyle.Fill;
         screenshotApp.Dock = DockStyle.Fill;
 
-        tabControl.TabPages.Add(new TabPage("監控") { BackColor = UITheme.BgGray }); // 0
-        tabControl.TabPages.Add(new TabPage("待辦") { BackColor = UITheme.BgGray }); // 1
-        tabControl.TabPages.Add(new TabPage("待規") { BackColor = UITheme.BgGray }); // 2
-        tabControl.TabPages.Add(new TabPage("行程") { BackColor = UITheme.BgGray }); // 3 
-        tabControl.TabPages.Add(new TabPage("週期") { BackColor = UITheme.BgGray }); // 4
-        tabControl.TabPages.Add(new TabPage("捷徑") { BackColor = UITheme.BgGray }); // 5
-        tabControl.TabPages.Add(new TabPage("截圖") { BackColor = UITheme.BgGray }); // 6
+        tabControl.TabPages.Add(new TabPage("監控") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("待辦") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("待規") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("行程") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("週期") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("捷徑") { BackColor = UITheme.BgGray }); 
+        tabControl.TabPages.Add(new TabPage("截圖") { BackColor = UITheme.BgGray }); 
 
         tabControl.TabPages[0].Controls.Add(fileWatcherApp);
         tabControl.TabPages[1].Controls.Add(todoApp);
@@ -165,12 +157,8 @@ public class MainForm : Form {
         };
     }
 
-    // --- 資料庫設定載入 ---
     private void LoadPathSettings() {
-        // 主程式目前在 Library 目錄執行，所以 BaseDirectory 會是 {Root}\Library\
-        // 為了取得 {Root}\app\，我們往上一層 ".." 再進入 "app"
         string baseAppFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "app"));
-        
         hotkeyPaths[HOTKEY_IMAGE_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_IMAGE_ID}", Path.Combine(baseAppFolder, "MiniImage", "MiniImageStudio.exe"));
         hotkeyPaths[HOTKEY_SAFETY_ID] = DbHelper.GetSetting($"Hotkey_{HOTKEY_SAFETY_ID}", Path.Combine(baseAppFolder, "SafetySystem", "Safety_System.exe"));
     }
@@ -182,31 +170,25 @@ public class MainForm : Form {
         }
     }
 
-    // --- Tab 繪製：iOS 乾淨風格 ---
     private void TabControl_DrawItem(object sender, DrawItemEventArgs e) {
         TabPage page = tabControl.TabPages[e.Index];
         bool isSelected = e.Index == tabControl.SelectedIndex;
         bool isAlert = alertTabs.Contains(e.Index);
 
-        // 畫背景
         using (SolidBrush bgBrush = new SolidBrush(UITheme.BgGray)) { 
             e.Graphics.FillRectangle(bgBrush, e.Bounds); 
         }
 
         Color textColor = isSelected ? UITheme.AppleBlue : UITheme.TextSub;
-        
-        // 閃爍警告色
         if (isAlert && flashState && !isSelected) {
             textColor = UITheme.AppleRed;
         }
 
-        // 繪製文字
         using (SolidBrush textBrush = new SolidBrush(textColor)) {
             StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             e.Graphics.DrawString(page.Text, e.Font, textBrush, e.Bounds, sf);
         }
 
-        // iOS 風格的選中指示線
         if (isSelected) {
             float scale = this.DeviceDpi / 96f;
             using (SolidBrush lineBrush = new SolidBrush(UITheme.AppleBlue)) {
@@ -255,15 +237,11 @@ public class MainForm : Form {
     private void SetRunOnStartup(bool enable) {
         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
             if (enable) {
-                // 將啟動路徑設定為外層的 Launcher (MyTool.exe)
                 string launcherPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "MyTool.exe");
-                // 取得絕對路徑並確認檔案存在
                 launcherPath = Path.GetFullPath(launcherPath); 
-                
                 if (File.Exists(launcherPath)) {
                     key.SetValue(appName, launcherPath);
                 } else {
-                    // 如果找不到外層啟動器(例如開發環境)，就用目前的
                     key.SetValue(appName, Application.ExecutablePath);
                 }
             }
@@ -272,6 +250,11 @@ public class MainForm : Form {
     }
 
     protected override void WndProc(ref Message m) {
+        // 捕捉喚醒廣播
+        if (m.Msg == WM_SHOWME) {
+            ShowAppWindow();
+        }
+        // 捕捉實體按鍵快捷鍵
         if (m.Msg == WM_HOTKEY) {
             int id = m.WParam.ToInt32();
             if (id == HOTKEY_ID) { ShowAppWindow(); } 
@@ -327,9 +310,6 @@ public class MainForm : Form {
     }
 }
 
-// =======================================================
-// 快捷鍵路徑設定視窗 (DPI 與 iOS UI 升級)
-// =======================================================
 public class HotkeyPathSettingsForm : Form {
     private Dictionary<int, string> currentPaths;
     private Dictionary<int, TextBox> textboxes = new Dictionary<int, TextBox>();
@@ -342,7 +322,7 @@ public class HotkeyPathSettingsForm : Form {
         float scale = this.DeviceDpi / 96f;
         this.Text = "快捷鍵程式路徑設定";
         this.Width = (int)(550 * scale);
-        this.Height = (int)(320 * scale); // 移除了一個項目，將視窗高度縮減
+        this.Height = (int)(320 * scale); 
         this.StartPosition = FormStartPosition.CenterScreen;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
@@ -353,10 +333,8 @@ public class HotkeyPathSettingsForm : Form {
 
     private void InitializeUI(float scale) {
         FlowLayoutPanel panel = new FlowLayoutPanel() {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            Padding = new Padding((int)(20 * scale)),
-            AutoScroll = true
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown,
+            Padding = new Padding((int)(20 * scale)), AutoScroll = true
         };
 
         AddPathSettingUI(panel, 9001, "Ctrl + 2 (圖片小工具):", scale);
@@ -365,84 +343,50 @@ public class HotkeyPathSettingsForm : Form {
         Panel bottomPanel = new Panel() { Dock = DockStyle.Bottom, Height = (int)(70 * scale) };
         
         Button btnSave = new Button() { 
-            Text = "儲存設定", 
-            Width = (int)(120 * scale), Height = (int)(40 * scale), 
+            Text = "儲存設定", Width = (int)(120 * scale), Height = (int)(40 * scale), 
             Left = (int)(150 * scale), Top = (int)(10 * scale),
             BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite,
-            FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(10f, FontStyle.Bold),
-            Cursor = Cursors.Hand
+            FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand
         };
         btnSave.FlatAppearance.BorderSize = 0;
 
         Button btnCancel = new Button() { 
-            Text = "取消", 
-            Width = (int)(100 * scale), Height = (int)(40 * scale), 
+            Text = "取消", Width = (int)(100 * scale), Height = (int)(40 * scale), 
             Left = (int)(280 * scale), Top = (int)(10 * scale),
             BackColor = UITheme.CardWhite, ForeColor = UITheme.TextMain,
-            FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(10f),
-            Cursor = Cursors.Hand
+            FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(10f), Cursor = Cursors.Hand
         };
         btnCancel.FlatAppearance.BorderColor = Color.LightGray;
 
         btnSave.Click += BtnSave_Click;
         btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
 
-        bottomPanel.Controls.Add(btnSave);
-        bottomPanel.Controls.Add(btnCancel);
-
-        this.Controls.Add(panel);
-        this.Controls.Add(bottomPanel);
+        bottomPanel.Controls.Add(btnSave); bottomPanel.Controls.Add(btnCancel);
+        this.Controls.Add(panel); this.Controls.Add(bottomPanel);
     }
 
     private void AddPathSettingUI(FlowLayoutPanel parent, int id, string labelText, float scale) {
         Panel row = new Panel() { Width = (int)(480 * scale), Height = (int)(65 * scale), Margin = new Padding(0, 0, 0, (int)(10 * scale)) };
-        
-        Label lbl = new Label() { 
-            Text = labelText, AutoSize = true, 
-            Location = new Point((int)(5 * scale), (int)(5 * scale)), 
-            Font = UITheme.GetFont(10f, FontStyle.Bold), ForeColor = UITheme.TextMain 
-        };
-        
-        TextBox txt = new TextBox() { 
-            Width = (int)(380 * scale), 
-            Location = new Point((int)(5 * scale), (int)(30 * scale)), 
-            Text = currentPaths.ContainsKey(id) ? currentPaths[id] : "",
-            Font = UITheme.GetFont(10f)
-        };
-        
-        Button btnBrowse = new Button() { 
-            Text = "瀏覽...", 
-            Width = (int)(80 * scale), Height = (int)(28 * scale), 
-            Location = new Point((int)(395 * scale), (int)(29 * scale)),
-            BackColor = UITheme.CardWhite, ForeColor = UITheme.TextMain,
-            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
-            Font = UITheme.GetFont(9f)
-        };
+        Label lbl = new Label() { Text = labelText, AutoSize = true, Location = new Point((int)(5 * scale), (int)(5 * scale)), Font = UITheme.GetFont(10f, FontStyle.Bold), ForeColor = UITheme.TextMain };
+        TextBox txt = new TextBox() { Width = (int)(380 * scale), Location = new Point((int)(5 * scale), (int)(30 * scale)), Text = currentPaths.ContainsKey(id) ? currentPaths[id] : "", Font = UITheme.GetFont(10f) };
+        Button btnBrowse = new Button() { Text = "瀏覽...", Width = (int)(80 * scale), Height = (int)(28 * scale), Location = new Point((int)(395 * scale), (int)(29 * scale)), BackColor = UITheme.CardWhite, ForeColor = UITheme.TextMain, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UITheme.GetFont(9f) };
         btnBrowse.FlatAppearance.BorderColor = Color.LightGray;
 
         btnBrowse.Click += (s, e) => {
             using (OpenFileDialog ofd = new OpenFileDialog() { Filter = "執行檔 (*.exe)|*.exe|所有檔案 (*.*)|*.*" }) {
-                if (ofd.ShowDialog() == DialogResult.OK) {
-                    txt.Text = ofd.FileName;
-                }
+                if (ofd.ShowDialog() == DialogResult.OK) txt.Text = ofd.FileName;
             }
         };
 
         textboxes[id] = txt;
-        
-        row.Controls.Add(lbl);
-        row.Controls.Add(txt);
-        row.Controls.Add(btnBrowse);
+        row.Controls.Add(lbl); row.Controls.Add(txt); row.Controls.Add(btnBrowse);
         parent.Controls.Add(row);
     }
 
     private void BtnSave_Click(object sender, EventArgs e) {
-        foreach (var kvp in textboxes) {
-            currentPaths[kvp.Key] = kvp.Value.Text;
-        }
+        foreach (var kvp in textboxes) { currentPaths[kvp.Key] = kvp.Value.Text; }
         parentForm.SavePathSettings(currentPaths);
         MessageBox.Show("快捷鍵路徑設定已儲存！\n下次啟動時將自動載入。", "設定成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        this.DialogResult = DialogResult.OK;
-        this.Close();
+        this.DialogResult = DialogResult.OK; this.Close();
     }
 }
