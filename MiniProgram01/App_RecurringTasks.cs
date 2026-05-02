@@ -1,3 +1,7 @@
+============================================================
+/// FILE: MiniProgram01/App_RecurringTasks.cs ///
+============================================================
+
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -241,6 +245,66 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
+    // --- 【新增】Excel 專用：批次判斷是否重複，覆蓋或新增 (使用 SQLite Transaction 加速) ---
+    public Tuple<int, int> BulkImportOrUpdate(List<RecurringTask> importedData) {
+        int addedCount = 0;
+        int updatedCount = 0;
+
+        using (var conn = DbHelper.GetConnection()) {
+            conn.Open();
+            using (var transaction = conn.BeginTransaction()) {
+                foreach (var t in importedData) {
+                    // 根據 名稱 與 週期月份 來判斷是否已經存在
+                    string checkSql = "SELECT Id FROM RecurringTasks WHERE Name=@N AND MonthStr=@M";
+                    int existingId = -1;
+                    using (var cmd = new SqliteCommand(checkSql, conn, transaction)) {
+                        cmd.Parameters.AddWithValue("@N", t.Name);
+                        cmd.Parameters.AddWithValue("@M", t.MonthStr);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null) existingId = Convert.ToInt32(result);
+                    }
+
+                    if (existingId != -1) {
+                        // 【存在】：直接覆蓋 日期、時間、類型與備註
+                        string updateSql = "UPDATE RecurringTasks SET DateStr=@D, TimeStr=@T, TaskType=@Ty, Note=@No WHERE Id=@Id";
+                        using (var cmd = new SqliteCommand(updateSql, conn, transaction)) {
+                            cmd.Parameters.AddWithValue("@D", t.DateStr);
+                            cmd.Parameters.AddWithValue("@T", t.TimeStr);
+                            cmd.Parameters.AddWithValue("@Ty", t.TaskType);
+                            cmd.Parameters.AddWithValue("@No", t.Note);
+                            cmd.Parameters.AddWithValue("@Id", existingId);
+                            cmd.ExecuteNonQuery();
+                        }
+                        updatedCount++;
+                    } else {
+                        // 【不存在】：建立全新任務，賦予新的排序
+                        string getOrderSql = "SELECT COALESCE(MAX(OrderIndex), 0) + 1 FROM RecurringTasks";
+                        int nextOrder = 0;
+                        using (var cmd = new SqliteCommand(getOrderSql, conn, transaction)) {
+                            nextOrder = Convert.ToInt32(cmd.ExecuteScalar());
+                        }
+
+                        string insertSql = "INSERT INTO RecurringTasks (Name, MonthStr, DateStr, TimeStr, TaskType, Note, LastTriggeredDate, OrderIndex) VALUES (@N, @M, @D, @T, @Ty, @No, '', @O)";
+                        using (var cmd = new SqliteCommand(insertSql, conn, transaction)) {
+                            cmd.Parameters.AddWithValue("@N", t.Name);
+                            cmd.Parameters.AddWithValue("@M", t.MonthStr);
+                            cmd.Parameters.AddWithValue("@D", t.DateStr);
+                            cmd.Parameters.AddWithValue("@T", t.TimeStr);
+                            cmd.Parameters.AddWithValue("@Ty", t.TaskType);
+                            cmd.Parameters.AddWithValue("@No", t.Note);
+                            cmd.Parameters.AddWithValue("@O", nextOrder);
+                            cmd.ExecuteNonQuery();
+                        }
+                        addedCount++;
+                    }
+                }
+                transaction.Commit();
+            }
+        }
+        LoadTasksFromDb(); // 處理完後，主畫面只重新整理一次
+        return new Tuple<int, int>(addedCount, updatedCount);
+    }
+
     public void UpdateTaskDb(RecurringTask t) { UpdateTaskInDb(t); LoadTasksFromDb(); }
 
     private void UpdateTaskInDb(RecurringTask t) {
@@ -322,6 +386,7 @@ public class App_RecurringTasks : UserControl {
             string[] timeParts = t.TimeStr.Split(':');
             int h = int.Parse(timeParts[0]); int m = int.Parse(timeParts[1]);
 
+            // 1. 單次特定日期
             if (t.MonthStr == "特定日期") {
                 if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
                     target = new DateTime(specificDate.Year, specificDate.Month, specificDate.Day, h, m, 0);
@@ -330,32 +395,52 @@ public class App_RecurringTasks : UserControl {
                 return false;
             }
 
-            if (t.MonthStr == "每天") { 
-                target = new DateTime(now.Year, now.Month, now.Day, h, m, 0); 
-                if (now > target) target = target.AddDays(1); 
-                return true; 
+            // 2. 每天觸發
+            if (t.MonthStr == "每天") {
+                target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
+                // 如果今天已經觸發過且時間已過，才推算到明天
+                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                    target = target.AddDays(1);
+                }
+                return true;
             }
             
+            // 3. 每週觸發
             if (t.MonthStr == "每週") {
                 Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek> {
                     {"一", DayOfWeek.Monday}, {"二", DayOfWeek.Tuesday}, {"三", DayOfWeek.Wednesday},
                     {"四", DayOfWeek.Thursday}, {"五", DayOfWeek.Friday}, {"六", DayOfWeek.Saturday}, {"日", DayOfWeek.Sunday}
                 };
                 if (!dow.ContainsKey(t.DateStr)) return false;
-                target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
-                while (target.DayOfWeek != dow[t.DateStr] || now > target) target = target.AddDays(1);
+                
+                // 找出本週的目標星期幾
+                int diff = dow[t.DateStr] - now.DayOfWeek;
+                target = new DateTime(now.Year, now.Month, now.Day, h, m, 0).AddDays(diff);
+                
+                // 如果本週時間已過且已觸發，則推算至下週
+                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                    target = target.AddDays(7);
+                }
                 return true;
             }
             
+            // 4. 每月或特定月份觸發
             if (t.MonthStr == "每月" || t.MonthStr.EndsWith("月")) {
                 int month = t.MonthStr == "每月" ? now.Month : int.Parse(t.MonthStr.Replace("月",""));
                 int day = (t.DateStr == "月底") ? DateTime.DaysInMonth(now.Year, month) : int.Parse(t.DateStr);
                 int validDay = Math.Min(day, DateTime.DaysInMonth(now.Year, month));
                 
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
-                if (now > target) {
-                    if (t.MonthStr == "每月") target = target.AddMonths(1);
-                    else target = target.AddYears(1);
+                
+                // 如果本週期已過且已觸發，推算至下一週期
+                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                    if (t.MonthStr == "每月") {
+                        target = target.AddMonths(1);
+                        validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, target.Month));
+                        target = new DateTime(target.Year, target.Month, validDay, h, m, 0);
+                    } else {
+                        target = target.AddYears(1); // 特定月份推至明年
+                    }
                 }
                 return true;
             }
@@ -608,28 +693,43 @@ public class AllTasksViewWindow : Form {
     private App_RecurringTasks parentControl;
     private FlowLayoutPanel flow;
     private float scale;
-    private bool isRefreshing = false; // 【修改需求】：加入刷新鎖，防止重新載入時無限卡死
+    private bool isRefreshing = false;
 
     public AllTasksViewWindow(App_RecurringTasks parent) {
         this.parentControl = parent; 
         this.scale = this.DeviceDpi / 96f;
         this.Text = "週期任務總覽"; 
-        this.Width = (int)(850 * scale); 
+        this.Width = (int)(900 * scale); 
         this.Height = (int)(850 * scale); 
         this.BackColor = UITheme.BgGray;
         this.TopMost = true; 
 
-        TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(70 * scale), BackColor = UITheme.CardWhite, ColumnCount = 2 };
+        // --- 標題列與功能按鈕 ---
+        TableLayoutPanel header = new TableLayoutPanel() { Dock = DockStyle.Top, Height = (int)(70 * scale), BackColor = UITheme.CardWhite, ColumnCount = 4 };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(150 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
 
         Label lbl = new Label() { Text = "週期任務排程總覽", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding((int)(20 * scale),0,0,0), Font = UITheme.GetFont(16f, FontStyle.Bold), ForeColor = UITheme.TextMain };
         
-        Button btnPrint = new Button() { Text = "導出 PDF", Width = (int)(120 * scale), Height = (int)(40 * scale), BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Anchor = AnchorStyles.Right, Margin = new Padding(0,0,(int)(20 * scale),0), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
+        Button btnImport = new Button() { Text = "匯入 Excel", Dock = DockStyle.Fill, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale)), Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        btnImport.FlatAppearance.BorderSize = 0;
+        btnImport.Click += (s, e) => ExecuteImportExcel();
+
+        Button btnExport = new Button() { Text = "匯出 Excel", Dock = DockStyle.Fill, BackColor = UITheme.AppleGreen, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale)), Font = UITheme.GetFont(10f, FontStyle.Bold), Cursor = Cursors.Hand };
+        btnExport.FlatAppearance.BorderSize = 0;
+        btnExport.Click += (s, e) => ExecuteExportExcel();
+
+        Button btnPrint = new Button() { Text = "導出 PDF", Dock = DockStyle.Fill, BackColor = Color.Gray, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(15*scale), (int)(15*scale)), Font = UITheme.GetFont(10.5f, FontStyle.Bold), Cursor = Cursors.Hand };
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
-        header.Controls.Add(lbl, 0, 0); header.Controls.Add(btnPrint, 1, 0); this.Controls.Add(header);
+        header.Controls.Add(lbl, 0, 0); 
+        header.Controls.Add(btnImport, 1, 0); 
+        header.Controls.Add(btnExport, 2, 0); 
+        header.Controls.Add(btnPrint, 3, 0); 
+        this.Controls.Add(header);
 
         flow = new FlowLayoutPanel() { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding((int)(20 * scale)), FlowDirection = FlowDirection.TopDown, WrapContents = false };
         flow.Resize += (s, e) => { 
@@ -637,6 +737,121 @@ public class AllTasksViewWindow : Form {
             if (w > 0) foreach (Control c in flow.Controls) if (c is Panel) c.Width = w;
         };
         this.Controls.Add(flow); flow.BringToFront(); RefreshData();
+    }
+
+    // ---------------------------------------------
+    // Excel 匯出功能 
+    // ---------------------------------------------
+    private void ExecuteExportExcel() {
+        Type excelType = Type.GetTypeFromProgID("Excel.Application");
+        if (excelType == null) {
+            MessageBox.Show("系統偵測不到 Microsoft Excel，請確認是否已安裝軟體。", "無法匯出", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using (SaveFileDialog sfd = new SaveFileDialog() { Filter = "Excel 活頁簿|*.xlsx", FileName = $"週期任務總覽_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx" }) {
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                dynamic excelApp = null;
+                dynamic workbook = null;
+                try {
+                    excelApp = Activator.CreateInstance(excelType);
+                    excelApp.Visible = false;
+                    excelApp.DisplayAlerts = false;
+                    workbook = excelApp.Workbooks.Add();
+                    dynamic sheet = workbook.Sheets[1];
+
+                    sheet.Cells[1, 1] = "任務名稱";
+                    sheet.Cells[1, 2] = "任務類型";
+                    sheet.Cells[1, 3] = "週期類型";
+                    sheet.Cells[1, 4] = "指定日期";
+                    sheet.Cells[1, 5] = "觸發時間";
+                    sheet.Cells[1, 6] = "備註";
+
+                    int row = 2;
+                    foreach (var t in parentControl.tasks) {
+                        sheet.Cells[row, 1] = t.Name;
+                        sheet.Cells[row, 2] = t.TaskType;
+                        sheet.Cells[row, 3] = t.MonthStr;
+                        sheet.Cells[row, 4] = t.DateStr;
+                        sheet.Cells[row, 5] = t.TimeStr;
+                        sheet.Cells[row, 6] = t.Note;
+                        row++;
+                    }
+
+                    sheet.Rows.RowHeight = 25;           
+                    sheet.Columns[1].ColumnWidth = 25;   
+                    for (int i = 2; i <= 6; i++) {
+                        sheet.Columns[i].ColumnWidth = 12; 
+                    }
+
+                    workbook.SaveAs(sfd.FileName);
+                    MessageBox.Show("Excel 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                } catch (Exception ex) {
+                    MessageBox.Show("匯出時發生錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                } finally {
+                    if (workbook != null) { workbook.Close(); System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook); }
+                    if (excelApp != null) { excelApp.Quit(); System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp); }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------
+    // Excel 匯入功能 (具備覆蓋更新機制)
+    // ---------------------------------------------
+    private void ExecuteImportExcel() {
+        Type excelType = Type.GetTypeFromProgID("Excel.Application");
+        if (excelType == null) {
+            MessageBox.Show("系統偵測不到 Microsoft Excel，請確認是否已安裝軟體。", "無法匯入", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using (OpenFileDialog ofd = new OpenFileDialog() { Filter = "Excel 活頁簿|*.xlsx;*.xls", Title = "選擇要匯入的排程檔案" }) {
+            if (ofd.ShowDialog() == DialogResult.OK) {
+                dynamic excelApp = null;
+                dynamic workbook = null;
+                try {
+                    excelApp = Activator.CreateInstance(excelType);
+                    excelApp.Visible = false;
+                    excelApp.DisplayAlerts = false;
+                    workbook = excelApp.Workbooks.Open(ofd.FileName);
+                    dynamic sheet = workbook.Sheets[1];
+
+                    dynamic lastCell = sheet.Cells.SpecialCells(11); 
+                    int lastRow = lastCell.Row;
+
+                    List<App_RecurringTasks.RecurringTask> importList = new List<App_RecurringTasks.RecurringTask>();
+
+                    for (int row = 2; row <= lastRow; row++) {
+                        string name = Convert.ToString(sheet.Cells[row, 1].Text);
+                        if (string.IsNullOrWhiteSpace(name) || name == "任務名稱") continue;
+
+                        importList.Add(new App_RecurringTasks.RecurringTask {
+                            Name = name,
+                            TaskType = Convert.ToString(sheet.Cells[row, 2].Text),
+                            MonthStr = Convert.ToString(sheet.Cells[row, 3].Text),
+                            DateStr = Convert.ToString(sheet.Cells[row, 4].Text),
+                            TimeStr = Convert.ToString(sheet.Cells[row, 5].Text),
+                            Note = Convert.ToString(sheet.Cells[row, 6].Text)
+                        });
+                    }
+
+                    // 呼叫底層批次更新模組，回傳 Tuple<新增數量, 更新數量>
+                    var resultStats = parentControl.BulkImportOrUpdate(importList);
+
+                    MessageBox.Show(
+                        $"Excel 匯入完成！\n\n新增了 {resultStats.Item1} 筆任務\n更新了 {resultStats.Item2} 筆任務", 
+                        "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    
+                    RefreshData();
+                } catch (Exception ex) {
+                    MessageBox.Show("檔案格式有誤或被其他程式鎖定。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                } finally {
+                    if (workbook != null) { workbook.Close(false); System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook); }
+                    if (excelApp != null) { excelApp.Quit(); System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp); }
+                }
+            }
+        }
     }
 
     private void ExecuteExportPDF() {
@@ -717,7 +932,6 @@ public class AllTasksViewWindow : Form {
     }
 
     public void RefreshData() {
-        // 【修改需求】：加入防當機鎖定機制，確保繪製安全
         if (isRefreshing) return;
         isRefreshing = true;
         flow.SuspendLayout();
@@ -764,7 +978,6 @@ public class AllTasksViewWindow : Form {
 
             Button bE = new Button() { Text = "調", Height = (int)(32 * scale), Dock = DockStyle.Top, BackColor = UITheme.AppleBlue, ForeColor = UITheme.CardWhite, FlatStyle = FlatStyle.Flat, Font = UITheme.GetFont(9f, FontStyle.Bold), Cursor = Cursors.Hand };
             bE.FlatAppearance.BorderSize = 0;
-            // 【修改需求】：改為 ShowDialog 同步等待，關閉後安全觸發 RefreshData 重新渲染畫面
             bE.Click += (s, e) => { 
                 new EditRecurringTaskWindow(parentControl, t).ShowDialog(); 
                 RefreshData(); 
