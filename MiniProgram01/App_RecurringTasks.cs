@@ -446,21 +446,19 @@ public class App_RecurringTasks : UserControl {
                 // 如果有設定提前天數，就把觸發門檻往前推
                 DateTime triggerThreshold = target.AddDays(-advanceDays);
                 
-                // 【核心修正】只要現在時間已經跨過了觸發門檻，就該處理
+                // 【核心修復】只要現在時間大於或等於觸發門檻，就進一步判斷
                 if (now >= triggerThreshold) {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
                     
-                    // 防重複機制：確認這個目標日期是否已經被觸發過
                     if (t.LastTriggeredDate != targetDateStr) {
                         string prefix = advanceDays > 0 ? $"[預排-{target:MM/dd}] " : "";
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
-                        // 記錄已觸發
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
                         parentForm.AlertTab(1); 
                         
-                        // 【修正】只要是特定日期（非循環），推播後就加入待刪除清單
+                        // 【修復】包含「特定日期」的任務，觸發後也一併排入刪除列
                         if (t.TaskType == "單次" || t.TaskType == "到期日" || t.MonthStr == "特定日期") {
                             toRemove.Add(t);
                         }
@@ -1017,6 +1015,9 @@ public class EditRecurringTaskWindow : Form {
             t.TimeStr = dtpTime.Value.ToString("HH:mm");
             t.Note = txtNote.Text;
             
+            // 【修復】手動修改後清空觸發紀錄，讓新設定的時間能正常觸發
+            t.LastTriggeredDate = "";
+            
             parent.UpdateTaskDb(t);
             this.Close(); 
         };
@@ -1278,7 +1279,7 @@ public class AllTasksViewWindow : Form {
                         dataSheet.Hide(); 
 
                         List<string> times = new List<string>();
-                        // 【修改】時間選項調整為 08:00 到 17:30
+                        // 【優化】觸發時間選項：08:00 到 17:30
                         for (int h = 8; h <= 17; h++) {
                             times.Add($"{h:D2}:00");
                             times.Add($"{h:D2}:30");
@@ -1332,6 +1333,7 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
+                        // 【安全】使用 CreateDataValidation 且直接傳入 IXLRange 物件
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.AllowedValues = XLAllowedValues.List;
                         valB.List(dataSheet.Range(1, 3, typeArr.Length, 3));
@@ -1414,7 +1416,7 @@ public class AllTasksViewWindow : Form {
             sfd.FileName = $"週期任務總覽_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
             if (sfd.ShowDialog() == DialogResult.OK) {
-                // 【修正】加入 using 確保列印資源用完立刻徹底釋放關閉
+                // 【釋放】確保列印資源用完立刻徹底關閉
                 using (PrintDocument pd = new PrintDocument()) {
                     pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
                     pd.PrinterSettings.PrintToFile = true;
@@ -1494,7 +1496,7 @@ public class AllTasksViewWindow : Form {
                     } catch (Exception ex) {
                         MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
-                } // 離開 using 區塊時自動 Dispose，防堵任何記憶體或執行緒洩漏
+                }
             }
         }
     }
