@@ -858,7 +858,6 @@ public class TaskCalendarWindow : Form {
         topPanel.BackColor = UITheme.CardWhite;
         topPanel.Padding = new Padding((int)(10 * scale));
         
-        // 【修改】將間距拉開，防止標籤與下拉選單重疊
         Label l1 = new Label();
         l1.Text = "檢視模式：";
         l1.AutoSize = true;
@@ -870,7 +869,6 @@ public class TaskCalendarWindow : Form {
         cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbMode.Items.AddRange(new string[] { "總覽", "待辦", "待規", "行程" });
         cmbMode.Width = (int)(100 * scale);
-        // 原本 100 改為 110
         cmbMode.Location = new Point((int)(110 * scale), (int)(15 * scale));
         cmbMode.Font = UITheme.GetFont(11f);
         
@@ -885,7 +883,6 @@ public class TaskCalendarWindow : Form {
         Label l2 = new Label();
         l2.Text = "年份：";
         l2.AutoSize = true;
-        // 原本 220 改為 240
         l2.Location = new Point((int)(240 * scale), (int)(18 * scale));
         l2.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l2);
@@ -898,7 +895,6 @@ public class TaskCalendarWindow : Form {
         }
         cmbYear.Text = curYear.ToString();
         cmbYear.Width = (int)(80 * scale);
-        // 原本 270 改為 310
         cmbYear.Location = new Point((int)(310 * scale), (int)(15 * scale));
         cmbYear.Font = UITheme.GetFont(11f);
         cmbYear.SelectedIndexChanged += (s, e) => RefreshData();
@@ -907,7 +903,6 @@ public class TaskCalendarWindow : Form {
         Label l3 = new Label();
         l3.Text = "月份：";
         l3.AutoSize = true;
-        // 原本 370 改為 420
         l3.Location = new Point((int)(420 * scale), (int)(18 * scale));
         l3.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l3);
@@ -918,20 +913,43 @@ public class TaskCalendarWindow : Form {
             cmbMonth.Items.Add(m.ToString("D2"));
         }
         cmbMonth.Text = DateTime.Now.Month.ToString("D2");
-        // 寬度 60 改為 70 防止字體被切
         cmbMonth.Width = (int)(70 * scale);
-        // 原本 420 改為 490
         cmbMonth.Location = new Point((int)(490 * scale), (int)(15 * scale));
         cmbMonth.Font = UITheme.GetFont(11f);
         cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMonth);
 
+        // ----------------------------------------------------
+        // 【新增】 << (上個月) 按鈕
+        // ----------------------------------------------------
+        Button btnPrev = new Button();
+        btnPrev.Text = "<<";
+        btnPrev.Width = (int)(45 * scale);
+        btnPrev.Height = (int)(32 * scale);
+        btnPrev.Location = new Point((int)(580 * scale), (int)(13 * scale));
+        btnPrev.BackColor = UITheme.CardWhite;
+        btnPrev.ForeColor = UITheme.TextMain;
+        btnPrev.FlatStyle = FlatStyle.Flat;
+        btnPrev.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnPrev.FlatAppearance.BorderColor = Color.LightGray;
+        btnPrev.Cursor = Cursors.Hand;
+        btnPrev.Click += (s, e) => {
+            int y = int.Parse(cmbYear.Text);
+            int m = int.Parse(cmbMonth.Text);
+            DateTime targetDt = new DateTime(y, m, 1).AddMonths(-1);
+            if (cmbYear.Items.Contains(targetDt.Year.ToString())) {
+                cmbYear.Text = targetDt.Year.ToString();
+                cmbMonth.Text = targetDt.Month.ToString("D2");
+            }
+        };
+        topPanel.Controls.Add(btnPrev);
+
+        // 回到本月按鈕
         Button btnToday = new Button();
         btnToday.Text = "回到本月";
         btnToday.Width = (int)(100 * scale);
         btnToday.Height = (int)(32 * scale);
-        // 原本 500 改為 590
-        btnToday.Location = new Point((int)(590 * scale), (int)(13 * scale));
+        btnToday.Location = new Point((int)(635 * scale), (int)(13 * scale));
         btnToday.BackColor = UITheme.AppleBlue;
         btnToday.ForeColor = UITheme.CardWhite;
         btnToday.FlatStyle = FlatStyle.Flat;
@@ -943,6 +961,31 @@ public class TaskCalendarWindow : Form {
             cmbMonth.Text = DateTime.Now.Month.ToString("D2");
         };
         topPanel.Controls.Add(btnToday);
+
+        // ----------------------------------------------------
+        // 【新增】 >> (下個月) 按鈕
+        // ----------------------------------------------------
+        Button btnNext = new Button();
+        btnNext.Text = ">>";
+        btnNext.Width = (int)(45 * scale);
+        btnNext.Height = (int)(32 * scale);
+        btnNext.Location = new Point((int)(745 * scale), (int)(13 * scale));
+        btnNext.BackColor = UITheme.CardWhite;
+        btnNext.ForeColor = UITheme.TextMain;
+        btnNext.FlatStyle = FlatStyle.Flat;
+        btnNext.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnNext.FlatAppearance.BorderColor = Color.LightGray;
+        btnNext.Cursor = Cursors.Hand;
+        btnNext.Click += (s, e) => {
+            int y = int.Parse(cmbYear.Text);
+            int m = int.Parse(cmbMonth.Text);
+            DateTime targetDt = new DateTime(y, m, 1).AddMonths(1);
+            if (cmbYear.Items.Contains(targetDt.Year.ToString())) {
+                cmbYear.Text = targetDt.Year.ToString();
+                cmbMonth.Text = targetDt.Month.ToString("D2");
+            }
+        };
+        topPanel.Controls.Add(btnNext);
 
         TableLayoutPanel rootSplit = new TableLayoutPanel();
         rootSplit.Dock = DockStyle.Fill;
