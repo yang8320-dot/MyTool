@@ -205,12 +205,13 @@ public class App_RecurringTasks : UserControl {
             card.Width = startWidth;
             card.AutoSize = true;
             card.Margin = new Padding((int)(5 * scale), 0, (int)(5 * scale), (int)(3 * scale));
-            card.BackColor = UITheme.CardWhite;
+            card.BackColor = UITheme.BgGray; // 【修改】白底改為與背景融合
 
             card.Paint += (s, e) => {
-                UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
+                // 【修改】保留圓角與淡色邊框
+                UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1)) {
+                using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                     e.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale)));
                 }
             };
@@ -267,7 +268,7 @@ public class App_RecurringTasks : UserControl {
             btnNote.FlatAppearance.BorderSize = 0;
             
             if (string.IsNullOrEmpty(t.Note)) {
-                btnNote.BackColor = UITheme.BgGray;
+                btnNote.BackColor = UITheme.BgGray; // 【修改】
                 btnNote.ForeColor = UITheme.TextMain;
             } else {
                 btnNote.BackColor = UITheme.AppleYellow;
@@ -1626,11 +1627,12 @@ public class AllTasksViewWindow : Form {
         gb.Width = flow.ClientSize.Width - (int)(40 * scale);
         gb.Margin = new Padding((int)(10 * scale), (int)(10 * scale), (int)(10 * scale), (int)(25 * scale));
         gb.Padding = new Padding((int)(15 * scale));
-        gb.BackColor = UITheme.CardWhite;
+        gb.BackColor = UITheme.BgGray; // 【修改】白底改為背景色
         
         gb.Paint += (s, e) => {
-            UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, gb.Width - 1, gb.Height - 1), (int)(12 * scale), UITheme.CardWhite);
-            using (var pen = new Pen(Color.FromArgb(220, 220, 220), 1)) {
+            // 【修改】保留圓角與淡色邊框
+            UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, gb.Width - 1, gb.Height - 1), (int)(12 * scale), UITheme.BgGray);
+            using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 e.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, gb.Width - 1, gb.Height - 1), (int)(12 * scale)));
             }
@@ -1711,7 +1713,7 @@ public class AllTasksViewWindow : Form {
                 bN.BackColor = UITheme.AppleYellow; 
                 bN.ForeColor = Color.Black; 
             } else { 
-                bN.BackColor = UITheme.BgGray; 
+                bN.BackColor = UITheme.BgGray; // 【修改】
                 bN.ForeColor = UITheme.TextSub; 
             }
             
