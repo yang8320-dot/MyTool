@@ -36,6 +36,11 @@ public class App_RecurringTasks : UserControl {
         public string TaskType { get; set; }
         public int OrderIndex { get; set; }
     }
+
+    public class ImportResult {
+        public int AddedCount { get; set; }
+        public List<string> UpdatedDetails { get; set; } = new List<string>();
+    }
     
     public List<RecurringTask> tasks = new List<RecurringTask>();
 
@@ -205,10 +210,9 @@ public class App_RecurringTasks : UserControl {
             card.Width = startWidth;
             card.AutoSize = true;
             card.Margin = new Padding((int)(5 * scale), 0, (int)(5 * scale), (int)(3 * scale));
-            card.BackColor = UITheme.BgGray; // 【修改】白底改為與背景融合
+            card.BackColor = UITheme.BgGray;
 
             card.Paint += (s, e) => {
-                // 【修改】保留圓角與淡色邊框
                 UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
@@ -268,7 +272,7 @@ public class App_RecurringTasks : UserControl {
             btnNote.FlatAppearance.BorderSize = 0;
             
             if (string.IsNullOrEmpty(t.Note)) {
-                btnNote.BackColor = UITheme.BgGray; // 【修改】
+                btnNote.BackColor = UITheme.BgGray;
                 btnNote.ForeColor = UITheme.TextMain;
             } else {
                 btnNote.BackColor = UITheme.AppleYellow;
@@ -329,23 +333,25 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
-    public Tuple<int, int> BulkImportOrUpdate(List<RecurringTask> importedData) {
-        int addedCount = 0;
-        int updatedCount = 0;
+    public ImportResult BulkImportOrUpdate(List<Tuple<int, RecurringTask>> importedData) {
+        ImportResult result = new ImportResult();
 
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             using (var transaction = conn.BeginTransaction()) {
-                foreach (var t in importedData) {
+                foreach (var item in importedData) {
+                    int rowNum = item.Item1;
+                    RecurringTask t = item.Item2;
+
                     string checkSql = "SELECT Id FROM RecurringTasks WHERE Name=@N AND MonthStr=@M AND TaskType=@Ty";
                     int existingId = -1;
                     using (var cmd = new SqliteCommand(checkSql, conn, transaction)) {
                         cmd.Parameters.AddWithValue("@N", t.Name);
                         cmd.Parameters.AddWithValue("@M", t.MonthStr);
                         cmd.Parameters.AddWithValue("@Ty", t.TaskType);
-                        var result = cmd.ExecuteScalar();
-                        if (result != null) {
-                            existingId = Convert.ToInt32(result);
+                        var obj = cmd.ExecuteScalar();
+                        if (obj != null) {
+                            existingId = Convert.ToInt32(obj);
                         }
                     }
 
@@ -358,7 +364,7 @@ public class App_RecurringTasks : UserControl {
                             cmd.Parameters.AddWithValue("@Id", existingId);
                             cmd.ExecuteNonQuery();
                         }
-                        updatedCount++;
+                        result.UpdatedDetails.Add($"第{rowNum}行：{t.Name} / {t.TaskType} / {t.MonthStr} / {t.DateStr} / {t.TimeStr}");
                     } else {
                         string getOrderSql = "SELECT COALESCE(MAX(OrderIndex), 0) + 1 FROM RecurringTasks";
                         int nextOrder = 0;
@@ -377,14 +383,14 @@ public class App_RecurringTasks : UserControl {
                             cmd.Parameters.AddWithValue("@O", nextOrder);
                             cmd.ExecuteNonQuery();
                         }
-                        addedCount++;
+                        result.AddedCount++;
                     }
                 }
                 transaction.Commit();
             }
         }
         LoadTasksFromDb(); 
-        return new Tuple<int, int>(addedCount, updatedCount);
+        return result;
     }
 
     public void UpdateTaskDb(RecurringTask t) { 
@@ -736,7 +742,6 @@ public class AddRecurringTaskWindow : Form {
         dtpDate.Font = UITheme.GetFont(10.5f);
         f.Controls.Add(dtpDate);
 
-        // 【重構】事件優先綁定，保證後續塞值時能完美觸發 UI 更新
         cmType.SelectedIndexChanged += (s, e) => {
             bool isLoop = false;
             if (cmType.Text == "循環") {
@@ -773,7 +778,6 @@ public class AddRecurringTaskWindow : Form {
             }
         }; 
 
-        // 綁定完事件後才塞入初始值，引發聯動
         cmType.SelectedIndex = 0; 
         cmM.SelectedIndex = 0;
 
@@ -932,7 +936,6 @@ public class EditRecurringTaskWindow : Form {
         dtpDate.Font = UITheme.GetFont(10.5f);
         f.Controls.Add(dtpDate);
 
-        // 【重構】優先綁定事件，確保資料完美寫入 UI
         cmType.SelectedIndexChanged += (s, e) => {
             bool isLoop = false;
             if (cmType.Text == "循環") {
@@ -969,7 +972,6 @@ public class EditRecurringTaskWindow : Form {
             }
         }; 
         
-        // 綁定事件後，塞入原始資料以觸發聯動
         cmType.Text = t.TaskType; 
 
         if (t.MonthStr == "特定日期") {
@@ -1431,9 +1433,13 @@ public class AllTasksViewWindow : Form {
                         }
 
                         var rows = sheet.RangeUsed().RowsUsed().Skip(1);
-                        List<App_RecurringTasks.RecurringTask> importList = new List<App_RecurringTasks.RecurringTask>();
+                        
+                        // 【修改】改成 List<Tuple<int, RecurringTask>> 來記錄行號
+                        List<Tuple<int, App_RecurringTasks.RecurringTask>> importList = new List<Tuple<int, App_RecurringTasks.RecurringTask>>();
 
                         foreach (var r in rows) {
+                            int rowNum = r.RowNumber(); // 取得 Excel 行號
+                            
                             string name = r.Cell(colMap["任務名稱"]).GetString().Trim();
                             if (string.IsNullOrWhiteSpace(name)) continue;
 
@@ -1478,22 +1484,73 @@ public class AllTasksViewWindow : Form {
                             t.TimeStr = time;
                             t.Note = note;
                             
-                            importList.Add(t);
+                            importList.Add(new Tuple<int, App_RecurringTasks.RecurringTask>(rowNum, t));
                         }
 
-                        var resultStats = parentControl.BulkImportOrUpdate(importList);
-
-                        MessageBox.Show(
-                            $"Excel 匯入完成！\n\n新增了 {resultStats.Item1} 筆任務\n更新了 {resultStats.Item2} 筆任務", 
-                            "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        
+                        // 呼叫更新後的 BulkImportOrUpdate
+                        App_RecurringTasks.ImportResult resultStats = parentControl.BulkImportOrUpdate(importList);
                         RefreshData();
+
+                        // 顯示自訂的結果視窗
+                        ShowImportResult(resultStats);
                     }
                 } catch (Exception ex) {
                     MessageBox.Show("檔案格式有誤或被其他程式鎖定。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
+    }
+
+    private void ShowImportResult(App_RecurringTasks.ImportResult res) {
+        Form f = new Form();
+        f.Text = "匯入結果";
+        f.Width = (int)(500 * scale);
+        f.Height = (int)(400 * scale);
+        f.StartPosition = FormStartPosition.CenterScreen;
+        f.BackColor = UITheme.BgGray;
+        f.TopMost = true;
+        f.MaximizeBox = false;
+        f.MinimizeBox = false;
+        f.FormBorderStyle = FormBorderStyle.FixedDialog;
+
+        Label lblSummary = new Label();
+        lblSummary.Text = $"Excel 匯入完成！\n\n新增了 {res.AddedCount} 筆任務\n更新了 {res.UpdatedDetails.Count} 筆任務";
+        lblSummary.AutoSize = true;
+        lblSummary.Location = new Point((int)(20 * scale), (int)(20 * scale));
+        lblSummary.Font = UITheme.GetFont(11f, FontStyle.Bold);
+
+        TextBox txtDetails = new TextBox();
+        txtDetails.Multiline = true;
+        txtDetails.ScrollBars = ScrollBars.Vertical;
+        txtDetails.ReadOnly = true;
+        txtDetails.Location = new Point((int)(20 * scale), (int)(90 * scale));
+        txtDetails.Width = (int)(440 * scale);
+        txtDetails.Height = (int)(200 * scale);
+        txtDetails.Font = UITheme.GetFont(10f);
+        
+        if (res.UpdatedDetails.Count > 0) {
+            txtDetails.Text = "【更新清單】\r\n" + string.Join("\r\n", res.UpdatedDetails);
+        } else {
+            txtDetails.Text = "無更新項目。";
+        }
+
+        Button btnOk = new Button();
+        btnOk.Text = "確定";
+        btnOk.Width = (int)(100 * scale);
+        btnOk.Height = (int)(40 * scale);
+        btnOk.Location = new Point((int)(190 * scale), (int)(305 * scale));
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        btnOk.FlatAppearance.BorderSize = 0;
+        btnOk.Click += (s, e) => f.Close();
+
+        f.Controls.Add(lblSummary);
+        f.Controls.Add(txtDetails);
+        f.Controls.Add(btnOk);
+
+        f.ShowDialog();
     }
 
     private void ExecuteExportPDF() {
@@ -1627,10 +1684,9 @@ public class AllTasksViewWindow : Form {
         gb.Width = flow.ClientSize.Width - (int)(40 * scale);
         gb.Margin = new Padding((int)(10 * scale), (int)(10 * scale), (int)(10 * scale), (int)(25 * scale));
         gb.Padding = new Padding((int)(15 * scale));
-        gb.BackColor = UITheme.BgGray; // 【修改】白底改為背景色
+        gb.BackColor = UITheme.BgGray; 
         
         gb.Paint += (s, e) => {
-            // 【修改】保留圓角與淡色邊框
             UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, gb.Width - 1, gb.Height - 1), (int)(12 * scale), UITheme.BgGray);
             using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1713,7 +1769,7 @@ public class AllTasksViewWindow : Form {
                 bN.BackColor = UITheme.AppleYellow; 
                 bN.ForeColor = Color.Black; 
             } else { 
-                bN.BackColor = UITheme.BgGray; // 【修改】
+                bN.BackColor = UITheme.BgGray; 
                 bN.ForeColor = UITheme.TextSub; 
             }
             
