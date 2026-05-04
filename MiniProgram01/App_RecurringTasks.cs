@@ -1434,11 +1434,10 @@ public class AllTasksViewWindow : Form {
 
                         var rows = sheet.RangeUsed().RowsUsed().Skip(1);
                         
-                        // 【修改】改成 List<Tuple<int, RecurringTask>> 來記錄行號
                         List<Tuple<int, App_RecurringTasks.RecurringTask>> importList = new List<Tuple<int, App_RecurringTasks.RecurringTask>>();
 
                         foreach (var r in rows) {
-                            int rowNum = r.RowNumber(); // 取得 Excel 行號
+                            int rowNum = r.RowNumber(); 
                             
                             string name = r.Cell(colMap["任務名稱"]).GetString().Trim();
                             if (string.IsNullOrWhiteSpace(name)) continue;
@@ -1487,11 +1486,9 @@ public class AllTasksViewWindow : Form {
                             importList.Add(new Tuple<int, App_RecurringTasks.RecurringTask>(rowNum, t));
                         }
 
-                        // 呼叫更新後的 BulkImportOrUpdate
                         App_RecurringTasks.ImportResult resultStats = parentControl.BulkImportOrUpdate(importList);
                         RefreshData();
 
-                        // 顯示自訂的結果視窗
                         ShowImportResult(resultStats);
                     }
                 } catch (Exception ex) {
@@ -1505,7 +1502,8 @@ public class AllTasksViewWindow : Form {
         Form f = new Form();
         f.Text = "匯入結果";
         f.Width = (int)(500 * scale);
-        f.Height = (int)(400 * scale);
+        // 【修改】將視窗高度調高，避免擠壓
+        f.Height = (int)(450 * scale); 
         f.StartPosition = FormStartPosition.CenterScreen;
         f.BackColor = UITheme.BgGray;
         f.TopMost = true;
@@ -1523,7 +1521,8 @@ public class AllTasksViewWindow : Form {
         txtDetails.Multiline = true;
         txtDetails.ScrollBars = ScrollBars.Vertical;
         txtDetails.ReadOnly = true;
-        txtDetails.Location = new Point((int)(20 * scale), (int)(90 * scale));
+        // 【修改】把文字框的位置往下推，避免跟上方文字重疊
+        txtDetails.Location = new Point((int)(20 * scale), (int)(130 * scale)); 
         txtDetails.Width = (int)(440 * scale);
         txtDetails.Height = (int)(200 * scale);
         txtDetails.Font = UITheme.GetFont(10f);
@@ -1538,7 +1537,8 @@ public class AllTasksViewWindow : Form {
         btnOk.Text = "確定";
         btnOk.Width = (int)(100 * scale);
         btnOk.Height = (int)(40 * scale);
-        btnOk.Location = new Point((int)(190 * scale), (int)(305 * scale));
+        // 【修改】按鈕也跟著往下推
+        btnOk.Location = new Point((int)(190 * scale), (int)(350 * scale)); 
         btnOk.BackColor = UITheme.AppleBlue;
         btnOk.ForeColor = UITheme.CardWhite;
         btnOk.FlatStyle = FlatStyle.Flat;
