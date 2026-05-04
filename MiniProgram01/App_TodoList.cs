@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.Linq;
 using System.Threading;
 using Microsoft.Data.Sqlite;
+using System.Globalization; // 【新增】為了動態計算永久農曆假日
 
 public class App_TodoList : UserControl {
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
@@ -170,7 +171,9 @@ public class App_TodoList : UserControl {
             if (safeWidth > 0) {
                 taskContainer.SuspendLayout();
                 foreach (Control c in taskContainer.Controls) {
-                    if (c is Panel) c.Width = safeWidth;
+                    if (c is Panel) {
+                        c.Width = safeWidth;
+                    }
                 }
                 taskContainer.ResumeLayout(true);
             }
@@ -196,7 +199,9 @@ public class App_TodoList : UserControl {
 
     private void ExecuteAddLogic() {
         string text = inputField.Text.Trim();
-        if (string.IsNullOrEmpty(text)) return;
+        if (string.IsNullOrEmpty(text)) {
+            return;
+        }
 
         string dueDateStr = "";
         string noteAddon = "";
@@ -219,7 +224,9 @@ public class App_TodoList : UserControl {
 
     public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "", string dueDateStr = "", string noteAddon = "") {
         text = text.Trim(); 
-        if (string.IsNullOrEmpty(text)) return;
+        if (string.IsNullOrEmpty(text)) {
+            return;
+        }
         
         if (source == "手動") {
             string dateNote = $"本項目於：{DateTime.Now:yyyy年MM月dd日} 新增";
@@ -303,7 +310,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // 提供給日曆視窗打勾時使用
     public void DeleteTaskAndRefresh(int taskId) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
@@ -528,7 +534,9 @@ public class App_TodoList : UserControl {
         if (draggedCard != null && dragInsertIndex != -1) {
             int targetIdx = dragInsertIndex;
             int currentIdx = taskContainer.Controls.GetChildIndex(draggedCard);
-            if (currentIdx < targetIdx) targetIdx--; 
+            if (currentIdx < targetIdx) {
+                targetIdx--; 
+            }
             
             taskContainer.Controls.SetChildIndex(draggedCard, targetIdx);
             
@@ -587,7 +595,9 @@ public class App_TodoList : UserControl {
                         while (currentLine < taskDataList.Count) {
                             var t = taskDataList[currentLine];
                             string mainTxt = "□ " + t.Text;
-                            if(!string.IsNullOrEmpty(t.DueDate)) mainTxt = "□ [期] " + t.Text;
+                            if(!string.IsNullOrEmpty(t.DueDate)) {
+                                mainTxt = "□ [期] " + t.Text;
+                            }
 
                             SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
                             
@@ -834,13 +844,14 @@ public class TaskCalendarWindow : Form {
         this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
 
-        // 【修改】頂部控制列改為 FlowLayoutPanel 防止遮擋
+        // 【修改】頂部控制列改為自適應寬度
         FlowLayoutPanel topPanel = new FlowLayoutPanel();
         topPanel.Dock = DockStyle.Top;
-        topPanel.Height = (int)(60 * scale);
+        topPanel.AutoSize = true;
+        topPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        topPanel.MinimumSize = new Size(0, (int)(60 * scale));
         topPanel.BackColor = UITheme.CardWhite;
         topPanel.Padding = new Padding((int)(10 * scale));
-        topPanel.WrapContents = false;
         
         Label l1 = new Label();
         l1.Text = "檢視模式：";
@@ -874,7 +885,9 @@ public class TaskCalendarWindow : Form {
         cmbYear = new ComboBox();
         cmbYear.DropDownStyle = ComboBoxStyle.DropDownList;
         int curYear = DateTime.Now.Year;
-        for (int y = curYear - 2; y <= curYear + 5; y++) cmbYear.Items.Add(y.ToString());
+        for (int y = curYear - 2; y <= curYear + 5; y++) {
+            cmbYear.Items.Add(y.ToString());
+        }
         cmbYear.Text = curYear.ToString();
         cmbYear.Width = (int)(80 * scale);
         cmbYear.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
@@ -891,7 +904,9 @@ public class TaskCalendarWindow : Form {
 
         cmbMonth = new ComboBox();
         cmbMonth.DropDownStyle = ComboBoxStyle.DropDownList;
-        for (int m = 1; m <= 12; m++) cmbMonth.Items.Add(m.ToString("D2"));
+        for (int m = 1; m <= 12; m++) {
+            cmbMonth.Items.Add(m.ToString("D2"));
+        }
         cmbMonth.Text = DateTime.Now.Month.ToString("D2");
         cmbMonth.Width = (int)(60 * scale);
         cmbMonth.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
@@ -916,8 +931,6 @@ public class TaskCalendarWindow : Form {
         };
         topPanel.Controls.Add(btnToday);
 
-        this.Controls.Add(topPanel);
-
         // 主畫面切割 (70% 日曆, 30% 未排定期程)
         TableLayoutPanel mainSplit = new TableLayoutPanel();
         mainSplit.Dock = DockStyle.Fill;
@@ -927,13 +940,19 @@ public class TaskCalendarWindow : Form {
         mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
         mainSplit.Padding = new Padding((int)(10 * scale));
 
+        // 【修改】解決日曆邊界遮擋：排版層級設定
+        this.Controls.Add(topPanel);
+        this.Controls.Add(mainSplit);
+        topPanel.SendToBack();     // 強制讓 topPanel 佔據最上方邊界
+        mainSplit.BringToFront();  // 剩下的空間才給 mainSplit 填滿
+
         // 左側：日曆區域
         TableLayoutPanel calWrapper = new TableLayoutPanel();
         calWrapper.Dock = DockStyle.Fill;
         calWrapper.RowCount = 2;
         calWrapper.ColumnCount = 1;
-        // 【確保標題顯示】設定明確高度
-        calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(40 * scale)));
+        calWrapper.Margin = new Padding(0);
+        calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(50 * scale))); // 【修改】加高高度防遮擋
         calWrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         TableLayoutPanel daysHeader = new TableLayoutPanel();
@@ -948,7 +967,6 @@ public class TaskCalendarWindow : Form {
             dLbl.Dock = DockStyle.Fill;
             dLbl.TextAlign = ContentAlignment.MiddleCenter;
             dLbl.Font = UITheme.GetFont(12f, FontStyle.Bold);
-            // 【修改】日、六 標紅
             dLbl.ForeColor = (i == 0 || i == 6) ? UITheme.AppleRed : UITheme.TextMain;
             daysHeader.Controls.Add(dLbl, i, 0);
         }
@@ -958,8 +976,12 @@ public class TaskCalendarWindow : Form {
         calendarGrid.Dock = DockStyle.Fill;
         calendarGrid.ColumnCount = 7;
         calendarGrid.RowCount = 6;
-        for (int i = 0; i < 7; i++) calendarGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.28f));
-        for (int i = 0; i < 6; i++) calendarGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 16.66f));
+        for (int i = 0; i < 7; i++) {
+            calendarGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.28f));
+        }
+        for (int i = 0; i < 6; i++) {
+            calendarGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 16.66f));
+        }
         calendarGrid.CellBorderStyle = TableLayoutPanelCellBorderStyle.Single;
         calendarGrid.BackColor = UITheme.CardWhite;
         calWrapper.Controls.Add(calendarGrid, 0, 1);
@@ -990,7 +1012,6 @@ public class TaskCalendarWindow : Form {
         unassignedPanel.BringToFront();
 
         mainSplit.Controls.Add(rightPanel, 1, 0);
-        this.Controls.Add(mainSplit);
 
         this.Load += (s, e) => RefreshData();
     }
@@ -1002,37 +1023,43 @@ public class TaskCalendarWindow : Form {
         return "all";
     }
 
-    // 【新增】取得台灣國定與農曆假日 (2024~2026)
+    // 【新增】永久強健的國定假日與農曆轉換引擎 (無需每年手動更新)
     private string GetHoliday(DateTime dt) {
         string dateStr = dt.ToString("MM-dd");
-        string fullDateStr = dt.ToString("yyyy-MM-dd");
         
         if (dateStr == "01-01") return "元旦";
         if (dateStr == "02-28") return "和平紀念日";
-        if (dateStr == "04-04") return "兒童節";
+        if (dateStr == "04-04") return "兒童節"; 
+        if (dateStr == "04-05") return "清明節"; 
         if (dateStr == "05-01") return "勞動節";
         if (dateStr == "10-10") return "國慶日";
 
-        Dictionary<string, string> special = new Dictionary<string, string>();
-        // 2024
-        special.Add("2024-02-08", "小年夜"); special.Add("2024-02-09", "除夕"); 
-        special.Add("2024-02-10", "春節"); special.Add("2024-02-11", "春節"); 
-        special.Add("2024-02-12", "春節"); special.Add("2024-02-13", "春節"); 
-        special.Add("2024-02-14", "春節"); special.Add("2024-04-05", "清明節"); 
-        special.Add("2024-06-10", "端午節"); special.Add("2024-09-17", "中秋節");
-        // 2025
-        special.Add("2025-01-25", "小年夜"); special.Add("2025-01-28", "除夕"); 
-        special.Add("2025-01-29", "春節"); special.Add("2025-01-30", "春節"); 
-        special.Add("2025-01-31", "春節"); special.Add("2025-04-05", "清明節"); 
-        special.Add("2025-05-31", "端午節"); special.Add("2025-10-06", "中秋節");
-        // 2026
-        special.Add("2026-02-16", "除夕"); special.Add("2026-02-17", "春節"); 
-        special.Add("2026-02-18", "春節"); special.Add("2026-02-19", "春節"); 
-        special.Add("2026-02-20", "春節"); special.Add("2026-02-21", "春節");
-        special.Add("2026-04-05", "清明節"); special.Add("2026-06-19", "端午節"); 
-        special.Add("2026-09-25", "中秋節");
+        try {
+            ChineseLunisolarCalendar lunarCal = new ChineseLunisolarCalendar();
+            if (dt >= lunarCal.MinSupportedDateTime && dt <= lunarCal.MaxSupportedDateTime) {
+                int lYear = lunarCal.GetYear(dt);
+                int lMonth = lunarCal.GetMonth(dt);
+                int lDay = lunarCal.GetDayOfMonth(dt);
+                int leapMonth = lunarCal.GetLeapMonth(lYear);
 
-        if (special.ContainsKey(fullDateStr)) return special[fullDateStr];
+                int actualMonth = lMonth;
+                if (leapMonth > 0) {
+                    if (lMonth == leapMonth) return ""; 
+                    if (lMonth > leapMonth) actualMonth--; 
+                }
+
+                int daysInMonth = lunarCal.GetDaysInMonth(lYear, lMonth);
+                if (actualMonth == 12 && lDay == daysInMonth) return "除夕";
+                if (actualMonth == 12 && lDay == daysInMonth - 1) return "小年夜";
+
+                if (actualMonth == 1 && lDay == 1) return "春節";
+                if (actualMonth == 1 && lDay == 2) return "初二";
+                if (actualMonth == 1 && lDay == 3) return "初三";
+                if (actualMonth == 5 && lDay == 5) return "端午節";
+                if (actualMonth == 8 && lDay == 15) return "中秋節";
+            }
+        } catch { }
+
         return "";
     }
 
@@ -1050,10 +1077,14 @@ public class TaskCalendarWindow : Form {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "SELECT Id, Text, Color, Note, CreatedTime, OrderIndex, DueDate, ListType FROM Tasks";
-            if (typeFilter != "all") sql += " WHERE ListType = @Type";
+            if (typeFilter != "all") {
+                sql += " WHERE ListType = @Type";
+            }
             
             using (var cmd = new SqliteCommand(sql, conn)) {
-                if (typeFilter != "all") cmd.Parameters.AddWithValue("@Type", typeFilter);
+                if (typeFilter != "all") {
+                    cmd.Parameters.AddWithValue("@Type", typeFilter);
+                }
                 using (var reader = cmd.ExecuteReader()) {
                     while (reader.Read()) {
                         var t = new App_TodoList.TaskInfo();
@@ -1082,10 +1113,10 @@ public class TaskCalendarWindow : Form {
         var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
         var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
 
-        // 【修改】填滿右側無日期清單，加入打勾功能且無白底背景
         foreach(var t in unassignedTasks) {
             Panel uPanel = new Panel();
-            uPanel.Width = unassignedPanel.ClientSize.Width - (int)(20 * scale) > 0 ? unassignedPanel.ClientSize.Width - (int)(20 * scale) : (int)(200 * scale);
+            int safeWidth = unassignedPanel.ClientSize.Width - (int)(20 * scale);
+            uPanel.Width = safeWidth > 0 ? safeWidth : (int)(200 * scale);
             uPanel.AutoSize = true;
             uPanel.Margin = new Padding((int)(5 * scale));
             uPanel.BackColor = UITheme.BgGray; 
@@ -1118,7 +1149,6 @@ public class TaskCalendarWindow : Form {
             unassignedPanel.Controls.Add(uPanel);
         }
 
-        // 畫日曆
         DateTime firstDay = new DateTime(targetYear, targetMonth, 1);
         int daysInMonth = DateTime.DaysInMonth(targetYear, targetMonth);
         int startDayOfWeek = (int)firstDay.DayOfWeek; 
@@ -1134,7 +1164,6 @@ public class TaskCalendarWindow : Form {
             DateTime cellDate;
             bool isCurrentMonth = false;
             
-            // 【修改】前後月份補齊邏輯
             if (i < startDayOfWeek) {
                 int day = prevMonthDays - startDayOfWeek + i + 1;
                 cellDate = new DateTime(prevMonth.Year, prevMonth.Month, day);
@@ -1160,7 +1189,6 @@ public class TaskCalendarWindow : Form {
                 cell.BackColor = UITheme.CardWhite;
             }
 
-            // 頂部放日期數字與假日
             FlowLayoutPanel headerRow = new FlowLayoutPanel();
             headerRow.Width = (int)(150 * scale);
             headerRow.AutoSize = true;
@@ -1185,7 +1213,6 @@ public class TaskCalendarWindow : Form {
             }
             headerRow.Controls.Add(dayNum);
 
-            // 假日標示
             string holiday = GetHoliday(cellDate);
             if (!string.IsNullOrEmpty(holiday)) {
                 Label hLbl = new Label();
