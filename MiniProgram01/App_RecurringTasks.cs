@@ -522,16 +522,17 @@ public class App_RecurringTasks : UserControl {
         }
     }
 
+    // 【修改】防呆機制：新任務如果算出的時間小於今天(代表過去的時間)，自動推延至下一週期
     private bool TryGetNextTriggerTime(RecurringTask t, DateTime now, out DateTime target) {
         target = now;
         try {
             string[] timeParts = t.TimeStr.Split(':');
             int h = int.Parse(timeParts[0]); 
             int m = int.Parse(timeParts[1]);
+            bool isNew = string.IsNullOrEmpty(t.LastTriggeredDate);
 
             if (t.MonthStr == "特定日期") {
-                DateTime specificDate;
-                if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out specificDate)) {
+                if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
                     target = new DateTime(specificDate.Year, specificDate.Month, specificDate.Day, h, m, 0);
                     return true;
                 }
@@ -540,30 +541,24 @@ public class App_RecurringTasks : UserControl {
 
             if (t.MonthStr == "每天") {
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
-                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
                     target = target.AddDays(1);
                 }
                 return true;
             }
             
             if (t.MonthStr == "每週") {
-                Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek>();
-                dow.Add("一", DayOfWeek.Monday);
-                dow.Add("二", DayOfWeek.Tuesday);
-                dow.Add("三", DayOfWeek.Wednesday);
-                dow.Add("四", DayOfWeek.Thursday);
-                dow.Add("五", DayOfWeek.Friday);
-                dow.Add("六", DayOfWeek.Saturday);
-                dow.Add("日", DayOfWeek.Sunday);
-                
-                if (!dow.ContainsKey(t.DateStr)) {
-                    return false;
-                }
+                Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek> {
+                    {"一", DayOfWeek.Monday}, {"二", DayOfWeek.Tuesday}, {"三", DayOfWeek.Wednesday},
+                    {"四", DayOfWeek.Thursday}, {"五", DayOfWeek.Friday}, {"六", DayOfWeek.Saturday}, {"日", DayOfWeek.Sunday}
+                };
+                if (!dow.ContainsKey(t.DateStr)) return false;
                 
                 int diff = dow[t.DateStr] - now.DayOfWeek;
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0).AddDays(diff);
                 
-                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                // 【修正防呆】：若是新任務且日期已經過了，推遲到下週
+                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd") || (isNew && target.Date < now.Date)) {
                     target = target.AddDays(7);
                 }
                 return true;
@@ -576,7 +571,8 @@ public class App_RecurringTasks : UserControl {
                 
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
                 
-                if (now > target && t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
+                // 【修正防呆】：若是新任務且日期已經過了，自動推遲到下一週期
+                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd") || (isNew && target.Date < now.Date)) {
                     if (t.MonthStr == "每月") {
                         target = target.AddMonths(1);
                         validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, target.Month));
@@ -1502,7 +1498,6 @@ public class AllTasksViewWindow : Form {
         Form f = new Form();
         f.Text = "匯入結果";
         f.Width = (int)(500 * scale);
-        // 【修改】將視窗高度調高，避免擠壓
         f.Height = (int)(450 * scale); 
         f.StartPosition = FormStartPosition.CenterScreen;
         f.BackColor = UITheme.BgGray;
@@ -1521,7 +1516,6 @@ public class AllTasksViewWindow : Form {
         txtDetails.Multiline = true;
         txtDetails.ScrollBars = ScrollBars.Vertical;
         txtDetails.ReadOnly = true;
-        // 【修改】把文字框的位置往下推，避免跟上方文字重疊
         txtDetails.Location = new Point((int)(20 * scale), (int)(130 * scale)); 
         txtDetails.Width = (int)(440 * scale);
         txtDetails.Height = (int)(200 * scale);
@@ -1537,7 +1531,6 @@ public class AllTasksViewWindow : Form {
         btnOk.Text = "確定";
         btnOk.Width = (int)(100 * scale);
         btnOk.Height = (int)(40 * scale);
-        // 【修改】按鈕也跟著往下推
         btnOk.Location = new Point((int)(190 * scale), (int)(350 * scale)); 
         btnOk.BackColor = UITheme.AppleBlue;
         btnOk.ForeColor = UITheme.CardWhite;
