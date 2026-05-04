@@ -87,7 +87,7 @@ public class App_FileWatcher : UserControl {
         cardPanel.Resize += (s, e) => {
             int safeWidth = cardPanel.ClientSize.Width - (int)(15 * scale);
             if (safeWidth > 0) {
-                cardPanel.SuspendLayout(); // 【優化】避免卡頓
+                cardPanel.SuspendLayout(); 
                 foreach (Control c in cardPanel.Controls) {
                     if (c is Panel) c.Width = safeWidth;
                 }
@@ -369,12 +369,13 @@ public class App_FileWatcher : UserControl {
                         c.Name = cardUniqueName;
                         c.Width = (int)(340 * scale);
                         c.AutoSize = true;
-                        c.BackColor = UITheme.CardWhite;
+                        c.BackColor = UITheme.BgGray; // 【修改】白底改為與背景融合
                         c.Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(3 * scale));
                         
                         c.Paint += (s, ev) => {
-                            UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, c.Width - 1, c.Height - 1), (int)(8 * scale), UITheme.CardWhite);
-                            using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1)) {
+                            // 【修改】保留圓角與淡色邊框
+                            UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, c.Width - 1, c.Height - 1), (int)(8 * scale), UITheme.BgGray);
+                            using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                                 ev.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                                 ev.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, c.Width - 1, c.Height - 1), (int)(8 * scale)));
                             }
@@ -696,7 +697,7 @@ public class MonitorListWindow : Form {
         flow.Resize += (s, e) => {
             int w = flow.ClientSize.Width - (int)(30 * scale);
             if (w > 0) {
-                flow.SuspendLayout(); // 【優化】避免縮放卡頓
+                flow.SuspendLayout(); 
                 foreach (Control c in flow.Controls) {
                     if (c is Panel) c.Width = w;
                 }
@@ -735,14 +736,15 @@ public class MonitorListWindow : Form {
             Panel card = new Panel();
             card.AutoSize = true;
             card.MinimumSize = new Size(0, (int)(70 * scale));
-            card.BackColor = UITheme.CardWhite;
+            card.BackColor = UITheme.BgGray; // 【修改】與背景色融合
             card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
             card.Padding = new Padding((int)(12 * scale));
             card.Width = flow.ClientSize.Width > (int)(30 * scale) ? flow.ClientSize.Width - (int)(30 * scale) : (int)(400 * scale);
             
             card.Paint += (s, ev) => {
-                UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(10 * scale), UITheme.CardWhite);
-                using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1)) {
+                // 【修改】保留圓角與淡色邊框
+                UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(10 * scale), UITheme.BgGray);
+                using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                     ev.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                     ev.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(10 * scale)));
                 }
