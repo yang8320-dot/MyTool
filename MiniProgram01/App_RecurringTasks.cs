@@ -328,6 +328,7 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
+    // 【修改】加入 TaskType 進行三重交叉比對
     public Tuple<int, int> BulkImportOrUpdate(List<RecurringTask> importedData) {
         int addedCount = 0;
         int updatedCount = 0;
@@ -336,11 +337,12 @@ public class App_RecurringTasks : UserControl {
             conn.Open();
             using (var transaction = conn.BeginTransaction()) {
                 foreach (var t in importedData) {
-                    string checkSql = "SELECT Id FROM RecurringTasks WHERE Name=@N AND MonthStr=@M";
+                    string checkSql = "SELECT Id FROM RecurringTasks WHERE Name=@N AND MonthStr=@M AND TaskType=@Ty";
                     int existingId = -1;
                     using (var cmd = new SqliteCommand(checkSql, conn, transaction)) {
                         cmd.Parameters.AddWithValue("@N", t.Name);
                         cmd.Parameters.AddWithValue("@M", t.MonthStr);
+                        cmd.Parameters.AddWithValue("@Ty", t.TaskType);
                         var result = cmd.ExecuteScalar();
                         if (result != null) {
                             existingId = Convert.ToInt32(result);
@@ -348,11 +350,10 @@ public class App_RecurringTasks : UserControl {
                     }
 
                     if (existingId != -1) {
-                        string updateSql = "UPDATE RecurringTasks SET DateStr=@D, TimeStr=@T, TaskType=@Ty, Note=@No WHERE Id=@Id";
+                        string updateSql = "UPDATE RecurringTasks SET DateStr=@D, TimeStr=@T, Note=@No WHERE Id=@Id";
                         using (var cmd = new SqliteCommand(updateSql, conn, transaction)) {
                             cmd.Parameters.AddWithValue("@D", t.DateStr);
                             cmd.Parameters.AddWithValue("@T", t.TimeStr);
-                            cmd.Parameters.AddWithValue("@Ty", t.TaskType);
                             cmd.Parameters.AddWithValue("@No", t.Note);
                             cmd.Parameters.AddWithValue("@Id", existingId);
                             cmd.ExecuteNonQuery();
@@ -421,6 +422,23 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
+    // 【新增】徹底清空所有週期任務
+    public void ClearAllTasks() {
+        using (var conn = DbHelper.GetConnection()) {
+            conn.Open();
+            using (var transaction = conn.BeginTransaction()) {
+                using (var cmd = new SqliteCommand("DELETE FROM RecurringTasks", conn, transaction)) {
+                    cmd.ExecuteNonQuery();
+                }
+                using (var cmd = new SqliteCommand("DELETE FROM sqlite_sequence WHERE name='RecurringTasks'", conn, transaction)) {
+                    try { cmd.ExecuteNonQuery(); } catch { }
+                }
+                transaction.Commit();
+            }
+        }
+        LoadTasksFromDb();
+    }
+
     public void UpdateGlobalSettings(string dType, string dTime, int aDays, string sFreq) {
         digestType = dType; 
         digestTimeStr = dTime; 
@@ -443,10 +461,8 @@ public class App_RecurringTasks : UserControl {
         foreach (var t in tasks) {
             DateTime target;
             if (TryGetNextTriggerTime(t, now, out target)) {
-                // 如果有設定提前天數，就把觸發門檻往前推
                 DateTime triggerThreshold = target.AddDays(-advanceDays);
                 
-                // 【核心修復】只要現在時間大於或等於觸發門檻，就進一步判斷
                 if (now >= triggerThreshold) {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
                     
@@ -458,7 +474,6 @@ public class App_RecurringTasks : UserControl {
                         UpdateTaskInDb(t);
                         parentForm.AlertTab(1); 
                         
-                        // 【修復】包含「特定日期」的任務，觸發後也一併排入刪除列
                         if (t.TaskType == "單次" || t.TaskType == "到期日" || t.MonthStr == "特定日期") {
                             toRemove.Add(t);
                         }
@@ -1015,7 +1030,6 @@ public class EditRecurringTaskWindow : Form {
             t.TimeStr = dtpTime.Value.ToString("HH:mm");
             t.Note = txtNote.Text;
             
-            // 【修復】手動修改後清空觸發紀錄，讓新設定的時間能正常觸發
             t.LastTriggeredDate = "";
             
             parent.UpdateTaskDb(t);
@@ -1177,7 +1191,7 @@ public class AllTasksViewWindow : Form {
         this.parentControl = parent; 
         this.scale = this.DeviceDpi / 96f;
         this.Text = "週期任務總覽"; 
-        this.Width = (int)(900 * scale); 
+        this.Width = (int)(1000 * scale); 
         this.Height = (int)(850 * scale); 
         this.BackColor = UITheme.BgGray;
         this.TopMost = true; 
@@ -1186,8 +1200,11 @@ public class AllTasksViewWindow : Form {
         header.Dock = DockStyle.Top;
         header.Height = (int)(70 * scale);
         header.BackColor = UITheme.CardWhite;
-        header.ColumnCount = 4;
+        
+        // 【新增】一鍵清除功能，把原本的 4 欄改為 5 欄
+        header.ColumnCount = 5;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
@@ -1199,6 +1216,24 @@ public class AllTasksViewWindow : Form {
         lbl.Padding = new Padding((int)(20 * scale),0,0,0);
         lbl.Font = UITheme.GetFont(16f, FontStyle.Bold);
         lbl.ForeColor = UITheme.TextMain;
+
+        Button btnClearAll = new Button();
+        btnClearAll.Text = "一鍵清除";
+        btnClearAll.Dock = DockStyle.Fill;
+        btnClearAll.BackColor = UITheme.AppleRed;
+        btnClearAll.ForeColor = UITheme.CardWhite;
+        btnClearAll.FlatStyle = FlatStyle.Flat;
+        btnClearAll.Margin = new Padding((int)(5*scale), (int)(15*scale), (int)(5*scale), (int)(15*scale));
+        btnClearAll.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnClearAll.Cursor = Cursors.Hand;
+        btnClearAll.FlatAppearance.BorderSize = 0;
+        btnClearAll.Click += (s, e) => {
+            DialogResult dr = MessageBox.Show("確定要清空所有的週期任務嗎？\n(此操作無法復原)", "警告", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (dr == DialogResult.Yes) {
+                parentControl.ClearAllTasks();
+                RefreshData();
+            }
+        };
         
         Button btnImport = new Button();
         btnImport.Text = "匯入 Excel";
@@ -1237,9 +1272,10 @@ public class AllTasksViewWindow : Form {
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
         header.Controls.Add(lbl, 0, 0); 
-        header.Controls.Add(btnImport, 1, 0); 
-        header.Controls.Add(btnExport, 2, 0); 
-        header.Controls.Add(btnPrint, 3, 0); 
+        header.Controls.Add(btnClearAll, 1, 0);
+        header.Controls.Add(btnImport, 2, 0); 
+        header.Controls.Add(btnExport, 3, 0); 
+        header.Controls.Add(btnPrint, 4, 0); 
         this.Controls.Add(header);
 
         flow = new FlowLayoutPanel();
@@ -1279,7 +1315,6 @@ public class AllTasksViewWindow : Form {
                         dataSheet.Hide(); 
 
                         List<string> times = new List<string>();
-                        // 【優化】觸發時間選項：08:00 到 17:30
                         for (int h = 8; h <= 17; h++) {
                             times.Add($"{h:D2}:00");
                             times.Add($"{h:D2}:30");
@@ -1333,7 +1368,6 @@ public class AllTasksViewWindow : Form {
 
                         int maxValRow = row > 100 ? row + 100 : 500;
 
-                        // 【安全】使用 CreateDataValidation 且直接傳入 IXLRange 物件
                         var valB = mainSheet.Range($"B2:B{maxValRow}").CreateDataValidation();
                         valB.AllowedValues = XLAllowedValues.List;
                         valB.List(dataSheet.Range(1, 3, typeArr.Length, 3));
@@ -1358,6 +1392,7 @@ public class AllTasksViewWindow : Form {
                         valE.InCellDropdown = true;
                         valE.ShowErrorMessage = false;
 
+                        mainSheet.Activate();
                         workbook.SaveAs(sfd.FileName);
                         MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
@@ -1416,7 +1451,6 @@ public class AllTasksViewWindow : Form {
             sfd.FileName = $"週期任務總覽_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
             if (sfd.ShowDialog() == DialogResult.OK) {
-                // 【釋放】確保列印資源用完立刻徹底關閉
                 using (PrintDocument pd = new PrintDocument()) {
                     pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
                     pd.PrinterSettings.PrintToFile = true;
@@ -1494,9 +1528,9 @@ public class AllTasksViewWindow : Form {
                         pd.Print();
                         MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     } catch (Exception ex) {
-                        MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show("導出失敗！請確認安裝了Microsoft Print to PDF。\n" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
-                }
+                } 
             }
         }
     }
