@@ -328,7 +328,6 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
-    // 【修改】加入 TaskType 進行三重交叉比對
     public Tuple<int, int> BulkImportOrUpdate(List<RecurringTask> importedData) {
         int addedCount = 0;
         int updatedCount = 0;
@@ -422,7 +421,6 @@ public class App_RecurringTasks : UserControl {
         LoadTasksFromDb();
     }
 
-    // 【新增】徹底清空所有週期任務
     public void ClearAllTasks() {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
@@ -1201,7 +1199,6 @@ public class AllTasksViewWindow : Form {
         header.Height = (int)(70 * scale);
         header.BackColor = UITheme.CardWhite;
         
-        // 【新增】一鍵清除功能，把原本的 4 欄改為 5 欄
         header.ColumnCount = 5;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale)));
@@ -1392,7 +1389,7 @@ public class AllTasksViewWindow : Form {
                         valE.InCellDropdown = true;
                         valE.ShowErrorMessage = false;
 
-                        mainSheet.Activate();
+                        // 【修復】移除造成編譯失敗的 Activate()
                         workbook.SaveAs(sfd.FileName);
                         MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
