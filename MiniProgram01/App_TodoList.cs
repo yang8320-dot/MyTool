@@ -14,7 +14,7 @@ using Microsoft.Data.Sqlite;
 public class App_TodoList : UserControl {
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
     
-    private string listType; 
+    public string listType; 
     private string titleName; 
 
     private TextBox inputField;
@@ -123,7 +123,7 @@ public class App_TodoList : UserControl {
         btnCalendar.Cursor = Cursors.Hand;
         btnCalendar.FlatAppearance.BorderSize = 0;
         btnCalendar.Click += (s, e) => {
-            TaskCalendarWindow calWin = new TaskCalendarWindow(this.listType);
+            TaskCalendarWindow calWin = new TaskCalendarWindow(this);
             calWin.Show();
         };
 
@@ -303,6 +303,18 @@ public class App_TodoList : UserControl {
         }
     }
 
+    // 提供給日曆視窗打勾時使用
+    public void DeleteTaskAndRefresh(int taskId) {
+        using (var conn = DbHelper.GetConnection()) {
+            conn.Open();
+            using (var cmd = new SqliteCommand("DELETE FROM Tasks WHERE Id = @Id", conn)) {
+                cmd.Parameters.AddWithValue("@Id", taskId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        LoadTasksFromDb(); 
+    }
+
     private void CreateTaskUICard(TaskInfo task, bool insertAtTop) {
         Color textColor = Color.FromName(task.Color);
         int startWidth = taskContainer.ClientSize.Width > (int)(20 * scale) ? taskContainer.ClientSize.Width - (int)(10 * scale) : (int)(450 * scale);
@@ -346,15 +358,7 @@ public class App_TodoList : UserControl {
         
         chk.CheckedChanged += (s, e) => {
             if (chk.Checked) {
-                using (var conn = DbHelper.GetConnection()) {
-                    conn.Open();
-                    using (var cmd = new SqliteCommand("DELETE FROM Tasks WHERE Id = @Id", conn)) {
-                        cmd.Parameters.AddWithValue("@Id", task.Id);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                taskDataList.Remove(task);
-                taskContainer.Controls.Remove(card);
+                DeleteTaskAndRefresh(task.Id);
             }
         };
 
@@ -634,7 +638,7 @@ public class App_TodoList : UserControl {
         form.FormBorderStyle = FormBorderStyle.FixedDialog;
         form.MaximizeBox = false;
         form.MinimizeBox = false;
-        form.TopMost = true; // 【修復】強制在最上層
+        form.TopMost = true; 
         form.BackColor = UITheme.BgGray;
 
         Label lbl = new Label();
@@ -691,7 +695,7 @@ public class App_TodoList : UserControl {
         form.FormBorderStyle = FormBorderStyle.FixedDialog;
         form.MaximizeBox = false;
         form.MinimizeBox = false;
-        form.TopMost = true; // 【修復】強制在最上層
+        form.TopMost = true; 
         form.BackColor = UITheme.BgGray;
         
         Label lbl = new Label();
@@ -743,7 +747,7 @@ public class App_TodoList : UserControl {
 }
 
 // ============================================================
-// 【新增】日期時間選擇視窗
+// 日期時間選擇視窗
 // ============================================================
 public class DateTimePickerDialog : Form {
     private DateTimePicker dpDate;
@@ -752,12 +756,12 @@ public class DateTimePickerDialog : Form {
 
     public DateTimePickerDialog(float scale) {
         this.Text = "設定期程";
-        this.ClientSize = new Size((int)(300 * scale), (int)(220 * scale)); // 【修復】明確定義 ClientSize
-        this.StartPosition = FormStartPosition.CenterScreen; // 【修復】強制螢幕置中
+        this.ClientSize = new Size((int)(300 * scale), (int)(220 * scale)); 
+        this.StartPosition = FormStartPosition.CenterScreen; 
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
-        this.TopMost = true; // 【修復】永遠在最上層，避免被主視窗蓋住
+        this.TopMost = true; 
         this.ShowInTaskbar = false; 
         this.BackColor = UITheme.BgGray;
 
@@ -813,31 +817,35 @@ public class DateTimePickerDialog : Form {
 }
 
 // ============================================================
-// 【新增】全螢幕日曆看板視窗
+// 全螢幕日曆看板視窗
 // ============================================================
 public class TaskCalendarWindow : Form {
+    private App_TodoList parentApp;
     private ComboBox cmbMode, cmbYear, cmbMonth;
     private TableLayoutPanel calendarGrid;
     private FlowLayoutPanel unassignedPanel;
     private float scale;
 
-    public TaskCalendarWindow(string defaultType) {
+    public TaskCalendarWindow(App_TodoList app) {
+        this.parentApp = app;
         this.scale = this.DeviceDpi / 96f;
         this.Text = "日曆任務總覽";
         this.WindowState = FormWindowState.Maximized;
-        this.TopMost = true; // 【修復】永遠在最上層，蓋過主視窗
+        this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
 
-        // 頂部控制列
-        Panel topPanel = new Panel();
+        // 【修改】頂部控制列改為 FlowLayoutPanel 防止遮擋
+        FlowLayoutPanel topPanel = new FlowLayoutPanel();
         topPanel.Dock = DockStyle.Top;
         topPanel.Height = (int)(60 * scale);
         topPanel.BackColor = UITheme.CardWhite;
+        topPanel.Padding = new Padding((int)(10 * scale));
+        topPanel.WrapContents = false;
         
         Label l1 = new Label();
         l1.Text = "檢視模式：";
         l1.AutoSize = true;
-        l1.Location = new Point((int)(20 * scale), (int)(20 * scale));
+        l1.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         l1.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l1);
 
@@ -845,13 +853,13 @@ public class TaskCalendarWindow : Form {
         cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbMode.Items.AddRange(new string[] { "總覽", "待辦", "待規", "行程" });
         cmbMode.Width = (int)(100 * scale);
-        cmbMode.Location = new Point((int)(110 * scale), (int)(16 * scale));
+        cmbMode.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
         cmbMode.Font = UITheme.GetFont(11f);
         
         string mapType = "總覽";
-        if (defaultType == "todo") mapType = "待辦";
-        if (defaultType == "plan") mapType = "待規";
-        if (defaultType == "schedule") mapType = "行程";
+        if (app.listType == "todo") mapType = "待辦";
+        if (app.listType == "plan") mapType = "待規";
+        if (app.listType == "schedule") mapType = "行程";
         cmbMode.Text = mapType;
         cmbMode.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMode);
@@ -859,7 +867,7 @@ public class TaskCalendarWindow : Form {
         Label l2 = new Label();
         l2.Text = "年份：";
         l2.AutoSize = true;
-        l2.Location = new Point((int)(230 * scale), (int)(20 * scale));
+        l2.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         l2.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l2);
 
@@ -869,7 +877,7 @@ public class TaskCalendarWindow : Form {
         for (int y = curYear - 2; y <= curYear + 5; y++) cmbYear.Items.Add(y.ToString());
         cmbYear.Text = curYear.ToString();
         cmbYear.Width = (int)(80 * scale);
-        cmbYear.Location = new Point((int)(280 * scale), (int)(16 * scale));
+        cmbYear.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
         cmbYear.Font = UITheme.GetFont(11f);
         cmbYear.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbYear);
@@ -877,7 +885,7 @@ public class TaskCalendarWindow : Form {
         Label l3 = new Label();
         l3.Text = "月份：";
         l3.AutoSize = true;
-        l3.Location = new Point((int)(380 * scale), (int)(20 * scale));
+        l3.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         l3.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l3);
 
@@ -886,7 +894,7 @@ public class TaskCalendarWindow : Form {
         for (int m = 1; m <= 12; m++) cmbMonth.Items.Add(m.ToString("D2"));
         cmbMonth.Text = DateTime.Now.Month.ToString("D2");
         cmbMonth.Width = (int)(60 * scale);
-        cmbMonth.Location = new Point((int)(430 * scale), (int)(16 * scale));
+        cmbMonth.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
         cmbMonth.Font = UITheme.GetFont(11f);
         cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMonth);
@@ -895,7 +903,7 @@ public class TaskCalendarWindow : Form {
         btnToday.Text = "回到本月";
         btnToday.Width = (int)(100 * scale);
         btnToday.Height = (int)(32 * scale);
-        btnToday.Location = new Point((int)(520 * scale), (int)(15 * scale));
+        btnToday.Margin = new Padding(0, (int)(2 * scale), 0, 0);
         btnToday.BackColor = UITheme.AppleBlue;
         btnToday.ForeColor = UITheme.CardWhite;
         btnToday.FlatStyle = FlatStyle.Flat;
@@ -924,6 +932,7 @@ public class TaskCalendarWindow : Form {
         calWrapper.Dock = DockStyle.Fill;
         calWrapper.RowCount = 2;
         calWrapper.ColumnCount = 1;
+        // 【確保標題顯示】設定明確高度
         calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(40 * scale)));
         calWrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
@@ -938,7 +947,8 @@ public class TaskCalendarWindow : Form {
             dLbl.Text = wDays[i];
             dLbl.Dock = DockStyle.Fill;
             dLbl.TextAlign = ContentAlignment.MiddleCenter;
-            dLbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
+            dLbl.Font = UITheme.GetFont(12f, FontStyle.Bold);
+            // 【修改】日、六 標紅
             dLbl.ForeColor = (i == 0 || i == 6) ? UITheme.AppleRed : UITheme.TextMain;
             daysHeader.Controls.Add(dLbl, i, 0);
         }
@@ -992,6 +1002,40 @@ public class TaskCalendarWindow : Form {
         return "all";
     }
 
+    // 【新增】取得台灣國定與農曆假日 (2024~2026)
+    private string GetHoliday(DateTime dt) {
+        string dateStr = dt.ToString("MM-dd");
+        string fullDateStr = dt.ToString("yyyy-MM-dd");
+        
+        if (dateStr == "01-01") return "元旦";
+        if (dateStr == "02-28") return "和平紀念日";
+        if (dateStr == "04-04") return "兒童節";
+        if (dateStr == "05-01") return "勞動節";
+        if (dateStr == "10-10") return "國慶日";
+
+        Dictionary<string, string> special = new Dictionary<string, string>();
+        // 2024
+        special.Add("2024-02-08", "小年夜"); special.Add("2024-02-09", "除夕"); 
+        special.Add("2024-02-10", "春節"); special.Add("2024-02-11", "春節"); 
+        special.Add("2024-02-12", "春節"); special.Add("2024-02-13", "春節"); 
+        special.Add("2024-02-14", "春節"); special.Add("2024-04-05", "清明節"); 
+        special.Add("2024-06-10", "端午節"); special.Add("2024-09-17", "中秋節");
+        // 2025
+        special.Add("2025-01-25", "小年夜"); special.Add("2025-01-28", "除夕"); 
+        special.Add("2025-01-29", "春節"); special.Add("2025-01-30", "春節"); 
+        special.Add("2025-01-31", "春節"); special.Add("2025-04-05", "清明節"); 
+        special.Add("2025-05-31", "端午節"); special.Add("2025-10-06", "中秋節");
+        // 2026
+        special.Add("2026-02-16", "除夕"); special.Add("2026-02-17", "春節"); 
+        special.Add("2026-02-18", "春節"); special.Add("2026-02-19", "春節"); 
+        special.Add("2026-02-20", "春節"); special.Add("2026-02-21", "春節");
+        special.Add("2026-04-05", "清明節"); special.Add("2026-06-19", "端午節"); 
+        special.Add("2026-09-25", "中秋節");
+
+        if (special.ContainsKey(fullDateStr)) return special[fullDateStr];
+        return "";
+    }
+
     public void RefreshData() {
         calendarGrid.SuspendLayout();
         unassignedPanel.SuspendLayout();
@@ -1038,86 +1082,165 @@ public class TaskCalendarWindow : Form {
         var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
         var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
 
+        // 【修改】填滿右側無日期清單，加入打勾功能且無白底背景
         foreach(var t in unassignedTasks) {
+            Panel uPanel = new Panel();
+            uPanel.Width = unassignedPanel.ClientSize.Width - (int)(20 * scale) > 0 ? unassignedPanel.ClientSize.Width - (int)(20 * scale) : (int)(200 * scale);
+            uPanel.AutoSize = true;
+            uPanel.Margin = new Padding((int)(5 * scale));
+            uPanel.BackColor = UITheme.BgGray; 
+
+            CheckBox chk = new CheckBox();
+            chk.Width = (int)(20 * scale);
+            chk.Dock = DockStyle.Left;
+            chk.Cursor = Cursors.Hand;
+            chk.CheckedChanged += (s, e) => {
+                if (chk.Checked) {
+                    parentApp.DeleteTaskAndRefresh(t.Id);
+                    RefreshData();
+                }
+            };
+
             Label lbl = new Label();
             lbl.Text = t.Text;
-            lbl.Width = unassignedPanel.ClientSize.Width - (int)(20 * scale) > 0 ? unassignedPanel.ClientSize.Width - (int)(20 * scale) : (int)(200 * scale);
+            lbl.Dock = DockStyle.Fill;
             lbl.AutoSize = true;
-            lbl.Margin = new Padding((int)(5 * scale));
-            lbl.Padding = new Padding((int)(10 * scale));
-            lbl.BackColor = UITheme.CardWhite;
             lbl.ForeColor = Color.FromName(t.Color);
             lbl.Font = UITheme.GetFont(10.5f);
             lbl.Cursor = Cursors.Hand;
-            lbl.BorderStyle = BorderStyle.FixedSingle;
-            
             lbl.DoubleClick += (s, e) => {
                 CalendarTaskEditForm editF = new CalendarTaskEditForm(t, this);
                 editF.ShowDialog();
             };
-            unassignedPanel.Controls.Add(lbl);
+
+            uPanel.Controls.Add(lbl);
+            uPanel.Controls.Add(chk); 
+            unassignedPanel.Controls.Add(uPanel);
         }
 
+        // 畫日曆
         DateTime firstDay = new DateTime(targetYear, targetMonth, 1);
         int daysInMonth = DateTime.DaysInMonth(targetYear, targetMonth);
         int startDayOfWeek = (int)firstDay.DayOfWeek; 
+        
+        DateTime prevMonth = firstDay.AddMonths(-1);
+        int prevMonthDays = DateTime.DaysInMonth(prevMonth.Year, prevMonth.Month);
+        DateTime nextMonth = firstDay.AddMonths(1);
 
-        int currentDay = 1;
-        for (int row = 0; row < 6; row++) {
-            for (int col = 0; col < 7; col++) {
-                FlowLayoutPanel cell = new FlowLayoutPanel();
-                cell.Dock = DockStyle.Fill;
-                cell.FlowDirection = FlowDirection.TopDown;
-                cell.WrapContents = false;
-                cell.AutoScroll = true;
-                cell.Margin = new Padding(0);
-
-                if (row == 0 && col < startDayOfWeek) {
-                    cell.BackColor = Color.FromArgb(245, 245, 245);
-                } else if (currentDay > daysInMonth) {
-                    cell.BackColor = Color.FromArgb(245, 245, 245);
-                } else {
-                    Label dayNum = new Label();
-                    dayNum.Text = currentDay.ToString();
-                    dayNum.AutoSize = true;
-                    dayNum.Font = UITheme.GetFont(10f, FontStyle.Bold);
-                    dayNum.ForeColor = Color.Gray;
-                    dayNum.Margin = new Padding((int)(2 * scale));
-                    
-                    if (targetYear == DateTime.Now.Year && targetMonth == DateTime.Now.Month && currentDay == DateTime.Now.Day) {
-                        dayNum.ForeColor = UITheme.CardWhite;
-                        dayNum.BackColor = UITheme.AppleBlue;
-                    }
-                    cell.Controls.Add(dayNum);
-
-                    string dateMatchStr = new DateTime(targetYear, targetMonth, currentDay).ToString("yyyy-MM-dd");
-                    var dayTasks = assignedTasks.Where(t => t.DueDate.StartsWith(dateMatchStr)).OrderBy(t => t.DueDate).ToList();
-
-                    foreach (var t in dayTasks) {
-                        string timeOnly = "";
-                        if (t.DueDate.Length >= 16) {
-                            timeOnly = t.DueDate.Substring(11, 5) + " ";
-                        }
-                        
-                        Label tLbl = new Label();
-                        tLbl.Text = timeOnly + t.Text;
-                        tLbl.AutoSize = true;
-                        tLbl.MaximumSize = new Size((int)(calendarGrid.Width / 7f) - (int)(10 * scale), 0);
-                        tLbl.Margin = new Padding((int)(2 * scale), 0, 0, (int)(4 * scale));
-                        tLbl.Font = UITheme.GetFont(9f);
-                        tLbl.ForeColor = Color.FromName(t.Color);
-                        tLbl.Cursor = Cursors.Hand;
-                        
-                        tLbl.DoubleClick += (s, e) => {
-                            CalendarTaskEditForm editF = new CalendarTaskEditForm(t, this);
-                            editF.ShowDialog();
-                        };
-                        cell.Controls.Add(tLbl);
-                    }
-                    currentDay++;
-                }
-                calendarGrid.Controls.Add(cell, col, row);
+        for (int i = 0; i < 42; i++) {
+            int row = i / 7;
+            int col = i % 7;
+            
+            DateTime cellDate;
+            bool isCurrentMonth = false;
+            
+            // 【修改】前後月份補齊邏輯
+            if (i < startDayOfWeek) {
+                int day = prevMonthDays - startDayOfWeek + i + 1;
+                cellDate = new DateTime(prevMonth.Year, prevMonth.Month, day);
+            } else if (i >= startDayOfWeek + daysInMonth) {
+                int day = i - (startDayOfWeek + daysInMonth) + 1;
+                cellDate = new DateTime(nextMonth.Year, nextMonth.Month, day);
+            } else {
+                int day = i - startDayOfWeek + 1;
+                cellDate = new DateTime(targetYear, targetMonth, day);
+                isCurrentMonth = true;
             }
+
+            FlowLayoutPanel cell = new FlowLayoutPanel();
+            cell.Dock = DockStyle.Fill;
+            cell.FlowDirection = FlowDirection.TopDown;
+            cell.WrapContents = false;
+            cell.AutoScroll = true;
+            cell.Margin = new Padding(0);
+
+            if (!isCurrentMonth) {
+                cell.BackColor = Color.FromArgb(245, 245, 245);
+            } else {
+                cell.BackColor = UITheme.CardWhite;
+            }
+
+            // 頂部放日期數字與假日
+            FlowLayoutPanel headerRow = new FlowLayoutPanel();
+            headerRow.Width = (int)(150 * scale);
+            headerRow.AutoSize = true;
+            headerRow.Margin = new Padding((int)(2 * scale));
+            
+            Label dayNum = new Label();
+            dayNum.Text = isCurrentMonth ? cellDate.Day.ToString() : $"{cellDate.Month}/{cellDate.Day}";
+            dayNum.AutoSize = true;
+            dayNum.Font = UITheme.GetFont(10f, FontStyle.Bold);
+            
+            if (isCurrentMonth && cellDate.Date == DateTime.Today) {
+                dayNum.ForeColor = UITheme.CardWhite;
+                dayNum.BackColor = UITheme.AppleBlue;
+            } else {
+                if (!isCurrentMonth) {
+                    dayNum.ForeColor = Color.LightGray;
+                } else if (col == 0 || col == 6) {
+                    dayNum.ForeColor = UITheme.AppleRed;
+                } else {
+                    dayNum.ForeColor = UITheme.TextMain;
+                }
+            }
+            headerRow.Controls.Add(dayNum);
+
+            // 假日標示
+            string holiday = GetHoliday(cellDate);
+            if (!string.IsNullOrEmpty(holiday)) {
+                Label hLbl = new Label();
+                hLbl.Text = holiday;
+                hLbl.AutoSize = true;
+                hLbl.Font = UITheme.GetFont(8.5f);
+                hLbl.ForeColor = UITheme.AppleRed;
+                hLbl.Margin = new Padding((int)(5 * scale), (int)(2 * scale), 0, 0);
+                headerRow.Controls.Add(hLbl);
+            }
+
+            cell.Controls.Add(headerRow);
+
+            string dateMatchStr = cellDate.ToString("yyyy-MM-dd");
+            var dayTasks = assignedTasks.Where(t => t.DueDate.StartsWith(dateMatchStr)).OrderBy(t => t.DueDate).ToList();
+
+            foreach (var t in dayTasks) {
+                string timeOnly = "";
+                if (t.DueDate.Length >= 16) {
+                    timeOnly = t.DueDate.Substring(11, 5) + " ";
+                }
+                
+                Panel tPanel = new Panel();
+                tPanel.AutoSize = true;
+                tPanel.Width = (int)(calendarGrid.Width / 7f) - (int)(10 * scale);
+                tPanel.Margin = new Padding(0, 0, 0, (int)(4 * scale));
+
+                CheckBox chk = new CheckBox();
+                chk.Width = (int)(16 * scale);
+                chk.Dock = DockStyle.Left;
+                chk.Cursor = Cursors.Hand;
+                chk.CheckedChanged += (s, e) => {
+                    if(chk.Checked) {
+                        parentApp.DeleteTaskAndRefresh(t.Id);
+                        RefreshData();
+                    }
+                };
+
+                Label tLbl = new Label();
+                tLbl.Text = timeOnly + t.Text;
+                tLbl.AutoSize = true;
+                tLbl.Dock = DockStyle.Fill;
+                tLbl.Font = UITheme.GetFont(9f);
+                tLbl.ForeColor = Color.FromName(t.Color);
+                tLbl.Cursor = Cursors.Hand;
+                tLbl.DoubleClick += (s, e) => {
+                    CalendarTaskEditForm editF = new CalendarTaskEditForm(t, this);
+                    editF.ShowDialog();
+                };
+
+                tPanel.Controls.Add(tLbl);
+                tPanel.Controls.Add(chk);
+                cell.Controls.Add(tPanel);
+            }
+            calendarGrid.Controls.Add(cell, col, row);
         }
         
         calendarGrid.ResumeLayout(true);
@@ -1126,7 +1249,7 @@ public class TaskCalendarWindow : Form {
 }
 
 // ============================================================
-// 【新增】日曆專用編輯視窗 (連點兩下觸發)
+// 日曆專用編輯視窗 (連點兩下觸發)
 // ============================================================
 public class CalendarTaskEditForm : Form {
     private App_TodoList.TaskInfo task;
@@ -1144,7 +1267,7 @@ public class CalendarTaskEditForm : Form {
         this.StartPosition = FormStartPosition.CenterScreen;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
-        this.TopMost = true; // 【修復】強制在最上層
+        this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
 
         FlowLayoutPanel f = new FlowLayoutPanel();
