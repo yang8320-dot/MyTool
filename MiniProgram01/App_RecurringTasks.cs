@@ -661,7 +661,6 @@ public class AddRecurringTaskWindow : Form {
 
         Label l1 = new Label();
         l1.Text = "任務名稱：";
-        l1.AutoSize = true;
         l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l1); 
 
@@ -672,7 +671,6 @@ public class AddRecurringTaskWindow : Form {
 
         Label l2 = new Label();
         l2.Text = "詳細說明 (註)：";
-        l2.AutoSize = true;
         l2.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l2.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l2);
@@ -687,7 +685,6 @@ public class AddRecurringTaskWindow : Form {
         
         Label l3 = new Label();
         l3.Text = "任務類型：";
-        l3.AutoSize = true;
         l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l3.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l3);
@@ -703,7 +700,6 @@ public class AddRecurringTaskWindow : Form {
 
         lblCycle = new Label();
         lblCycle.Text = "週期類型：";
-        lblCycle.AutoSize = true;
         lblCycle.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblCycle.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblCycle);
@@ -728,7 +724,6 @@ public class AddRecurringTaskWindow : Form {
 
         lblDate = new Label();
         lblDate.Text = "指定日期：";
-        lblDate.AutoSize = true;
         lblDate.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblDate.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblDate);
@@ -740,6 +735,7 @@ public class AddRecurringTaskWindow : Form {
         dtpDate.Font = UITheme.GetFont(10.5f);
         f.Controls.Add(dtpDate);
 
+        // 【重構】事件優先綁定，保證後續塞值時能完美觸發 UI 更新
         cmType.SelectedIndexChanged += (s, e) => {
             bool isLoop = false;
             if (cmType.Text == "循環") {
@@ -752,13 +748,11 @@ public class AddRecurringTaskWindow : Form {
             lblDate.Visible = !isLoop;
             dtpDate.Visible = !isLoop;
         };
-        cmType.SelectedIndex = 0; 
 
         cmM.SelectedIndexChanged += (s, e) => {
             cmD.Items.Clear();
             if(cmM.Text == "每天") { 
                 cmD.Items.Add("每日"); 
-                cmD.Enabled = false; 
             } else if(cmM.Text == "每週") { 
                 cmD.Items.Add("一");
                 cmD.Items.Add("二");
@@ -767,23 +761,23 @@ public class AddRecurringTaskWindow : Form {
                 cmD.Items.Add("五");
                 cmD.Items.Add("六");
                 cmD.Items.Add("日");
-                cmD.Enabled = true; 
             } else { 
                 for(int i = 1; i <= 31; i++) {
                     cmD.Items.Add(i.ToString());
                 }
                 cmD.Items.Add("月底"); 
-                cmD.Enabled = true; 
             }
             if (cmD.Items.Count > 0) {
                 cmD.SelectedIndex = 0;
             }
         }; 
+
+        // 綁定完事件後才塞入初始值，引發聯動
+        cmType.SelectedIndex = 0; 
         cmM.SelectedIndex = 0;
 
         Label l4 = new Label();
         l4.Text = "觸發時間：";
-        l4.AutoSize = true;
         l4.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l4.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l4);
@@ -858,7 +852,6 @@ public class EditRecurringTaskWindow : Form {
 
         Label l1 = new Label();
         l1.Text = "任務名稱：";
-        l1.AutoSize = true;
         l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l1); 
 
@@ -886,7 +879,6 @@ public class EditRecurringTaskWindow : Form {
         
         Label l3 = new Label();
         l3.Text = "任務類型：";
-        l3.AutoSize = true;
         l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l3.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l3);
@@ -898,7 +890,6 @@ public class EditRecurringTaskWindow : Form {
         cmType.Items.Add("循環");
         cmType.Items.Add("單次");
         cmType.Items.Add("到期日");
-        cmType.Text = t.TaskType; 
         f.Controls.Add(cmType);
 
         lblCycle = new Label();
@@ -940,6 +931,7 @@ public class EditRecurringTaskWindow : Form {
         dtpDate.Font = UITheme.GetFont(10.5f);
         f.Controls.Add(dtpDate);
 
+        // 【重構】優先綁定事件，確保資料完美寫入 UI
         cmType.SelectedIndexChanged += (s, e) => {
             bool isLoop = false;
             if (cmType.Text == "循環") {
@@ -952,15 +944,6 @@ public class EditRecurringTaskWindow : Form {
             lblDate.Visible = !isLoop;
             dtpDate.Visible = !isLoop;
         };
-
-        if (t.MonthStr == "特定日期") {
-            DateTime d;
-            if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out d)) {
-                dtpDate.Value = d;
-            }
-        } else {
-            cmM.Text = t.MonthStr;
-        }
 
         cmM.SelectedIndexChanged += (s, e) => {
             cmD.Items.Clear();
@@ -985,7 +968,16 @@ public class EditRecurringTaskWindow : Form {
             }
         }; 
         
-        if (t.MonthStr != "特定日期") {
+        // 綁定事件後，塞入原始資料以觸發聯動
+        cmType.Text = t.TaskType; 
+
+        if (t.MonthStr == "特定日期") {
+            DateTime d;
+            if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out d)) {
+                dtpDate.Value = d;
+            }
+        } else {
+            cmM.Text = t.MonthStr;
             if (cmD.Items.Contains(t.DateStr)) {
                 cmD.SelectedItem = t.DateStr;
             } else {
@@ -995,7 +987,6 @@ public class EditRecurringTaskWindow : Form {
 
         Label l4 = new Label();
         l4.Text = "觸發時間：";
-        l4.AutoSize = true;
         l4.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l4.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l4);
@@ -1415,7 +1406,7 @@ public class AllTasksViewWindow : Form {
         }
     }
 
-    // 【修改】智慧標題綁定與防呆匯入
+    // 【修改】智慧標題比對，容許自訂欄位，並校正單次/特定日期邏輯
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -1452,11 +1443,23 @@ public class AllTasksViewWindow : Form {
                             string time = colMap.ContainsKey("觸發時間") ? r.Cell(colMap["觸發時間"]).GetString().Trim().TrimStart('\'') : "08:00";
                             string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
 
-                            if (type == "單次" || type == "到期日" || (date.Length >= 8 && date.Contains("-"))) {
+                            if (type != "單次" && type != "到期日") {
+                                type = "循環";
+                            }
+
+                            if (type == "循環") {
+                                if (string.IsNullOrEmpty(date)) {
+                                    if (month == "每天") date = "每日";
+                                    else if (month == "每週") date = "一";
+                                    else date = "1";
+                                }
+                            } else {
                                 month = "特定日期";
                                 DateTime parsedDate;
                                 if (DateTime.TryParse(date, out parsedDate)) {
                                     date = parsedDate.ToString("yyyy-MM-dd");
+                                } else {
+                                    date = DateTime.Now.ToString("yyyy-MM-dd");
                                 }
                             }
 
@@ -1743,46 +1746,3 @@ public class AllTasksViewWindow : Form {
                 nb.BackColor = UITheme.AppleBlue;
                 nb.ForeColor = UITheme.CardWhite;
                 nb.Font = UITheme.GetFont(10f, FontStyle.Bold);
-                nb.FlatAppearance.BorderSize = 0;
-
-                Label nLbl = new Label();
-                nLbl.Text = "【" + t.Name + "】";
-                nLbl.Left = (int)(15 * scale);
-                nLbl.Top = (int)(15 * scale);
-                nLbl.AutoSize = true;
-                nLbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
-
-                nf.Controls.Add(nLbl);
-                nf.Controls.Add(nt);
-                nf.Controls.Add(nb);
-
-                DialogResult res = nf.ShowDialog();
-                if (res == DialogResult.OK) { 
-                    t.Note = nt.Text; 
-                    parentControl.UpdateTaskDb(t); 
-                    RefreshData(); 
-                }
-            };
-
-            string typeTag = $"[{t.TaskType}] ";
-            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.TimeStr}] {t.DateStr}";
-
-            Label rowLbl = new Label();
-            rowLbl.Text = typeTag + timeInfo + "  " + t.Name;
-            rowLbl.Dock = DockStyle.Fill;
-            rowLbl.TextAlign = ContentAlignment.MiddleLeft;
-            rowLbl.AutoSize = true;
-            rowLbl.Padding = new Padding(0, (int)(8 * scale), 0, (int)(8 * scale));
-            rowLbl.Font = UITheme.GetFont(10.5f);
-
-            row.Controls.Add(bE, 0, 0); 
-            row.Controls.Add(bD, 1, 0); 
-            row.Controls.Add(bN, 2, 0);
-            row.Controls.Add(rowLbl, 3, 0);
-            
-            inner.Controls.Add(row);
-        }
-        gb.Controls.Add(inner); 
-        flow.Controls.Add(gb);
-    }
-}
