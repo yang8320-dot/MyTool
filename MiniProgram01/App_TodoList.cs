@@ -18,6 +18,7 @@ public class App_TodoList : UserControl {
     private string titleName; 
 
     private TextBox inputField;
+    private CheckBox chkDate;
     private FlowLayoutPanel taskContainer;
 
     public class TaskInfo {
@@ -27,6 +28,7 @@ public class App_TodoList : UserControl {
         public string Note;
         public DateTime Time;
         public int OrderIndex;
+        public string DueDate; // 【新增】存放選擇的期程日期
     }
     
     private List<TaskInfo> taskDataList = new List<TaskInfo>();
@@ -46,18 +48,33 @@ public class App_TodoList : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(10 * scale));
 
-        // --- 頂部控制區 ---
+        // 【資料庫無痛升級】自動補上 DueDate 欄位
+        using (var conn = DbHelper.GetConnection()) {
+            conn.Open();
+            try { 
+                using (var cmd = new SqliteCommand("ALTER TABLE Tasks ADD COLUMN DueDate TEXT", conn)) {
+                    cmd.ExecuteNonQuery();
+                }
+            } catch { /* 欄位若已存在會引發例外，忽略即可 */ }
+        }
+
+        // --- 頂部控制區 (兩排式設計) ---
         TableLayoutPanel topBar = new TableLayoutPanel();
         topBar.Dock = DockStyle.Top;
-        topBar.Height = (int)(45 * scale);
+        topBar.Height = (int)(90 * scale); // 加高以容納兩排
+        topBar.RowCount = 2;
         topBar.ColumnCount = 4;
         topBar.Padding = new Padding(0);
         
+        topBar.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+        topBar.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(60 * scale))); 
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));               
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(65 * scale))); 
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(95 * scale))); 
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(90 * scale))); // 日期勾選寬度
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(80 * scale))); // 新增按鈕寬度
 
+        // 第一排元件
         Label lblTitle = new Label();
         lblTitle.Text = "項目：";
         lblTitle.Dock = DockStyle.Fill;
@@ -71,6 +88,14 @@ public class App_TodoList : UserControl {
         inputField.Margin = new Padding(0, (int)(8 * scale), (int)(5 * scale), 0);
         inputField.KeyDown += new KeyEventHandler(InputField_KeyDown);
 
+        chkDate = new CheckBox();
+        chkDate.Text = "設日期";
+        chkDate.Dock = DockStyle.Fill;
+        chkDate.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        chkDate.ForeColor = UITheme.TextMain;
+        chkDate.Margin = new Padding(0, (int)(8 * scale), 0, 0);
+        chkDate.Cursor = Cursors.Hand;
+
         Button btnAdd = new Button();
         btnAdd.Text = "新增";
         btnAdd.Dock = DockStyle.Fill;
@@ -83,22 +108,53 @@ public class App_TodoList : UserControl {
         btnAdd.FlatAppearance.BorderSize = 0;
         btnAdd.Click += new EventHandler(BtnAdd_Click);
 
+        // 第二排元件 (放在一個 FlowLayoutPanel 跨欄顯示)
+        FlowLayoutPanel row2Panel = new FlowLayoutPanel();
+        row2Panel.Dock = DockStyle.Fill;
+        row2Panel.FlowDirection = FlowDirection.LeftToRight;
+        row2Panel.Margin = new Padding(0);
+        row2Panel.Padding = new Padding(0, (int)(5 * scale), 0, 0);
+
+        Button btnCalendar = new Button();
+        btnCalendar.Text = "日曆總覽";
+        btnCalendar.Width = (int)(100 * scale);
+        btnCalendar.Height = (int)(32 * scale);
+        btnCalendar.FlatStyle = FlatStyle.Flat;
+        btnCalendar.BackColor = UITheme.AppleYellow;
+        btnCalendar.ForeColor = Color.Black;
+        btnCalendar.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnCalendar.Margin = new Padding(0, 0, (int)(10 * scale), 0);
+        btnCalendar.Cursor = Cursors.Hand;
+        btnCalendar.FlatAppearance.BorderSize = 0;
+        btnCalendar.Click += (s, e) => {
+            TaskCalendarWindow calWin = new TaskCalendarWindow(this.listType);
+            calWin.Show();
+        };
+
         Button btnPrint = new Button();
         btnPrint.Text = "導出PDF";
-        btnPrint.Dock = DockStyle.Fill;
+        btnPrint.Width = (int)(90 * scale);
+        btnPrint.Height = (int)(32 * scale);
         btnPrint.FlatStyle = FlatStyle.Flat;
         btnPrint.BackColor = UITheme.AppleGreen;
         btnPrint.ForeColor = UITheme.CardWhite;
-        btnPrint.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
-        btnPrint.Margin = new Padding(0, (int)(5 * scale), 0, (int)(5 * scale));
+        btnPrint.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnPrint.Margin = new Padding(0);
         btnPrint.Cursor = Cursors.Hand;
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
+        row2Panel.Controls.Add(btnCalendar);
+        row2Panel.Controls.Add(btnPrint);
+
+        // 加入排版
         topBar.Controls.Add(lblTitle, 0, 0);
         topBar.Controls.Add(inputField, 1, 0);
-        topBar.Controls.Add(btnAdd, 2, 0);
-        topBar.Controls.Add(btnPrint, 3, 0);
+        topBar.Controls.Add(chkDate, 2, 0);
+        topBar.Controls.Add(btnAdd, 3, 0);
+        
+        topBar.SetColumnSpan(row2Panel, 3);
+        topBar.Controls.Add(row2Panel, 1, 1);
 
         // --- 任務清單容器 ---
         taskContainer = new FlowLayoutPanel();
@@ -115,7 +171,6 @@ public class App_TodoList : UserControl {
         taskContainer.DragDrop += OnTaskDragDrop;
         taskContainer.Paint += OnTaskContainerPaint;
 
-        // 【效能優化】加入 SuspendLayout 解決縮放時卡頓與閃爍
         taskContainer.Resize += (s, e) => {
             int safeWidth = taskContainer.ClientSize.Width - (int)(10 * scale); 
             if (safeWidth > 0) {
@@ -137,23 +192,48 @@ public class App_TodoList : UserControl {
     private void InputField_KeyDown(object sender, KeyEventArgs e) {
         if (e.KeyCode == Keys.Enter) { 
             e.SuppressKeyPress = true; 
-            AddTask(inputField.Text); 
-            inputField.Text = ""; 
+            ExecuteAddLogic();
         }
     }
 
     private void BtnAdd_Click(object sender, EventArgs e) {
-        AddTask(inputField.Text); 
-        inputField.Text = "";
+        ExecuteAddLogic();
     }
 
-    // --- 資料庫操作與任務新增 ---
-    public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "") {
+    private void ExecuteAddLogic() {
+        string text = inputField.Text.Trim();
+        if (string.IsNullOrEmpty(text)) return;
+
+        string dueDateStr = "";
+        string noteAddon = "";
+
+        if (chkDate.Checked) {
+            DateTimePickerDialog dialog = new DateTimePickerDialog(scale);
+            if (dialog.ShowDialog() == DialogResult.OK) {
+                DateTime selectedDt = dialog.SelectedDateTime;
+                dueDateStr = selectedDt.ToString("yyyy-MM-dd HH:mm");
+                noteAddon = $"期程：{selectedDt.ToString("yyyy年MM月dd日-時間HH:mm")}";
+            } else {
+                return; // 取消則不新增
+            }
+        }
+
+        AddTask(text, "Black", "手動", "", dueDateStr, noteAddon);
+        inputField.Text = "";
+        chkDate.Checked = false;
+    }
+
+    // 【修改】加入期程日期與備註生成的邏輯
+    public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "", string dueDateStr = "", string noteAddon = "") {
         text = text.Trim(); 
         if (string.IsNullOrEmpty(text)) return;
         
         if (source == "手動") {
             string dateNote = $"本項目於：{DateTime.Now:yyyy年MM月dd日} 新增";
+            if (!string.IsNullOrEmpty(noteAddon)) {
+                dateNote += "\r\n" + noteAddon;
+            }
+
             if (string.IsNullOrEmpty(note)) {
                 note = dateNote;
             } else {
@@ -162,13 +242,16 @@ public class App_TodoList : UserControl {
         }
 
         DateTime now = DateTime.Now;
-        int orderIdx = taskDataList.Count > 0 ? taskDataList.Min(t => t.OrderIndex) - 1 : 0;
+        int orderIdx = 0;
+        if (taskDataList.Count > 0) {
+            orderIdx = taskDataList.Min(t => t.OrderIndex) - 1;
+        }
 
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = @"
-                INSERT INTO Tasks (ListType, Text, Color, Note, CreatedTime, OrderIndex) 
-                VALUES (@Type, @Text, @Color, @Note, @Time, @Order);
+                INSERT INTO Tasks (ListType, Text, Color, Note, CreatedTime, OrderIndex, DueDate) 
+                VALUES (@Type, @Text, @Color, @Note, @Time, @Order, @Due);
                 SELECT last_insert_rowid();";
             using (var cmd = new SqliteCommand(sql, conn)) {
                 cmd.Parameters.AddWithValue("@Type", listType);
@@ -177,36 +260,45 @@ public class App_TodoList : UserControl {
                 cmd.Parameters.AddWithValue("@Note", note);
                 cmd.Parameters.AddWithValue("@Time", now);
                 cmd.Parameters.AddWithValue("@Order", orderIdx);
+                cmd.Parameters.AddWithValue("@Due", dueDateStr ?? "");
                 
                 int newId = Convert.ToInt32(cmd.ExecuteScalar());
                 
-                var newTask = new TaskInfo { Id = newId, Text = text, Color = colorName, Note = note, Time = now, OrderIndex = orderIdx };
+                var newTask = new TaskInfo();
+                newTask.Id = newId;
+                newTask.Text = text;
+                newTask.Color = colorName;
+                newTask.Note = note;
+                newTask.Time = now;
+                newTask.OrderIndex = orderIdx;
+                newTask.DueDate = dueDateStr ?? "";
+
                 taskDataList.Insert(0, newTask);
-                
                 CreateTaskUICard(newTask, true); 
             }
         }
     }
 
-    private void LoadTasksFromDb() {
+    public void LoadTasksFromDb() {
         taskContainer.Controls.Clear();
         taskDataList.Clear();
 
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
-            string sql = "SELECT Id, Text, Color, Note, CreatedTime, OrderIndex FROM Tasks WHERE ListType = @Type ORDER BY OrderIndex ASC";
+            string sql = "SELECT Id, Text, Color, Note, CreatedTime, OrderIndex, DueDate FROM Tasks WHERE ListType = @Type ORDER BY OrderIndex ASC";
             using (var cmd = new SqliteCommand(sql, conn)) {
                 cmd.Parameters.AddWithValue("@Type", listType);
                 using (var reader = cmd.ExecuteReader()) {
                     while (reader.Read()) {
-                        var t = new TaskInfo {
-                            Id = reader.GetInt32(0),
-                            Text = reader.GetString(1),
-                            Color = reader.GetString(2),
-                            Note = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                            Time = reader.GetDateTime(4),
-                            OrderIndex = reader.GetInt32(5)
-                        };
+                        var t = new TaskInfo();
+                        t.Id = reader.GetInt32(0);
+                        t.Text = reader.GetString(1);
+                        t.Color = reader.GetString(2);
+                        t.Note = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                        t.Time = reader.GetDateTime(4);
+                        t.OrderIndex = reader.GetInt32(5);
+                        t.DueDate = reader.IsDBNull(6) ? "" : reader.GetString(6);
+                        
                         taskDataList.Add(t);
                     }
                 }
@@ -218,7 +310,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // --- iOS 風格卡片 UI 生成 ---
     private void CreateTaskUICard(TaskInfo task, bool insertAtTop) {
         Color textColor = Color.FromName(task.Color);
         int startWidth = taskContainer.ClientSize.Width > (int)(20 * scale) ? taskContainer.ClientSize.Width - (int)(10 * scale) : (int)(450 * scale);
@@ -274,8 +365,14 @@ public class App_TodoList : UserControl {
             }
         };
 
+        // 如果有期程，在標題顯示小標籤
+        string displayTxt = task.Text;
+        if (!string.IsNullOrEmpty(task.DueDate)) {
+            displayTxt = $"[期] {task.Text}";
+        }
+
         Label lbl = new Label();
-        lbl.Text = task.Text;
+        lbl.Text = displayTxt;
         lbl.Dock = DockStyle.Fill;
         lbl.Font = UITheme.GetFont(10.5f);
         lbl.ForeColor = textColor;
@@ -287,14 +384,15 @@ public class App_TodoList : UserControl {
 
         Button btnNote = CreateCardButton("註");
         Action updateNoteStyle = () => {
-            string autoGenPrefix = "本項目於：";
-            string autoGenSuffix = "新增";
-            bool isOnlySystemNote = false;
-            
+            bool isOnlySystemNote = true;
             if (!string.IsNullOrEmpty(task.Note)) {
-                string trimmedNote = task.Note.Trim();
-                if (trimmedNote.StartsWith(autoGenPrefix) && trimmedNote.EndsWith(autoGenSuffix) && trimmedNote.Length <= 30) {
-                    isOnlySystemNote = true;
+                string[] lines = task.Note.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines) {
+                    string tStr = line.Trim();
+                    if (tStr.StartsWith("本項目於：") && tStr.EndsWith("新增")) continue;
+                    if (tStr.StartsWith("期程：")) continue;
+                    isOnlySystemNote = false;
+                    break;
                 }
             }
 
@@ -326,7 +424,7 @@ public class App_TodoList : UserControl {
                 string targetName = kvp.Key;
                 App_TodoList targetApp = kvp.Value;
                 menu.Items.Add($"轉至 {targetName}", null, (sender, ev) => {
-                    targetApp.AddTask(task.Text, task.Color, "轉移寫入", task.Note);
+                    targetApp.AddTask(task.Text, task.Color, "轉移寫入", task.Note, task.DueDate, "");
                     chk.Checked = true; 
                 });
             }
@@ -340,21 +438,29 @@ public class App_TodoList : UserControl {
             int nextIdx = (Array.IndexOf(colorCycle, task.Color) + 1) % colorCycle.Length;
             task.Color = colorCycle[nextIdx];
             Color newColor = Color.FromName(task.Color);
-            lbl.ForeColor = newColor; btnColor.ForeColor = newColor;
-            UpdateTaskInDb(task); updateNoteStyle();
+            lbl.ForeColor = newColor; 
+            btnColor.ForeColor = newColor;
+            UpdateTaskInDb(task); 
+            updateNoteStyle();
         };
 
         Button btnEdit = CreateCardButton("修");
         Action triggerEdit = () => {
             string newText = ShowLargeEditBox(task.Text); 
             if (!string.IsNullOrEmpty(newText) && newText != task.Text) {
-                task.Text = newText; lbl.Text = newText; UpdateTaskInDb(task);
+                task.Text = newText; 
+                lbl.Text = string.IsNullOrEmpty(task.DueDate) ? newText : $"[期] {newText}"; 
+                UpdateTaskInDb(task);
             }
         };
         lbl.MouseDoubleClick += (s, e) => triggerEdit();
         btnEdit.Click += (s, e) => triggerEdit();
         
-        lbl.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) card.DoDragDrop(card, DragDropEffects.Move); };
+        lbl.MouseDown += (s, e) => { 
+            if (e.Button == MouseButtons.Left) {
+                card.DoDragDrop(card, DragDropEffects.Move); 
+            }
+        };
 
         item.Controls.Add(chk, 0, 0); 
         item.Controls.Add(lbl, 1, 0);
@@ -390,12 +496,13 @@ public class App_TodoList : UserControl {
     private void UpdateTaskInDb(TaskInfo task) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
-            string sql = "UPDATE Tasks SET Text=@Text, Color=@Color, Note=@Note, OrderIndex=@Order WHERE Id=@Id";
+            string sql = "UPDATE Tasks SET Text=@Text, Color=@Color, Note=@Note, OrderIndex=@Order, DueDate=@Due WHERE Id=@Id";
             using (var cmd = new SqliteCommand(sql, conn)) {
                 cmd.Parameters.AddWithValue("@Text", task.Text);
                 cmd.Parameters.AddWithValue("@Color", task.Color);
                 cmd.Parameters.AddWithValue("@Note", task.Note);
                 cmd.Parameters.AddWithValue("@Order", task.OrderIndex);
+                cmd.Parameters.AddWithValue("@Due", task.DueDate ?? "");
                 cmd.Parameters.AddWithValue("@Id", task.Id);
                 cmd.ExecuteNonQuery();
             }
@@ -447,7 +554,8 @@ public class App_TodoList : UserControl {
                 }
             }
             taskDataList = taskDataList.OrderBy(t => t.OrderIndex).ToList();
-            dragInsertIndex = -1; taskContainer.Invalidate(); 
+            dragInsertIndex = -1; 
+            taskContainer.Invalidate(); 
         }
     }
 
@@ -457,7 +565,6 @@ public class App_TodoList : UserControl {
             sfd.FileName = $"{titleName}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
             
             if (sfd.ShowDialog() == DialogResult.OK) {
-                // 【修正】加入 using 確保列印資源用完立刻徹底釋放關閉
                 using (PrintDocument pd = new PrintDocument()) {
                     pd.PrinterSettings.PrinterName = "Microsoft Print to PDF";
                     pd.PrinterSettings.PrintToFile = true;
@@ -484,6 +591,8 @@ public class App_TodoList : UserControl {
                         while (currentLine < taskDataList.Count) {
                             var t = taskDataList[currentLine];
                             string mainTxt = "□ " + t.Text;
+                            if(!string.IsNullOrEmpty(t.DueDate)) mainTxt = "□ [期] " + t.Text;
+
                             SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
                             
                             if (yPos + size.Height > args.MarginBounds.Bottom) {
@@ -517,14 +626,13 @@ public class App_TodoList : UserControl {
                         pd.Print();
                         MessageBox.Show("PDF 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     } catch (Exception ex) {
-                        MessageBox.Show("導出失敗！請確認您的 Windows 系統是否有安裝「Microsoft Print to PDF」虛擬印表機功能。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show("導出失敗！請確認安裝了Microsoft Print to PDF。\n" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
-                } // 離開 using 區塊時，pd 會自動呼叫 Dispose() 釋放系統印表機資源
+                } 
             }
         }
     }
 
-    // 【安全化】將彈出視窗的 UI 產生語法拆分為多行
     private string ShowLargeEditBox(string defaultValue) {
         Form form = new Form();
         form.Width = (int)(450 * scale);
@@ -581,7 +689,6 @@ public class App_TodoList : UserControl {
         return "";
     }
 
-    // 【安全化】將彈出視窗的 UI 產生語法拆分為多行
     private string ShowNoteEditBox(string taskName, string currentNote) {
         Form form = new Form();
         form.Width = (int)(420 * scale);
@@ -638,5 +745,493 @@ public class App_TodoList : UserControl {
             return txt.Text.Trim();
         }
         return null;
+    }
+}
+
+// ============================================================
+// 【新增】日期時間選擇視窗
+// ============================================================
+public class DateTimePickerDialog : Form {
+    private DateTimePicker dpDate;
+    private DateTimePicker dpTime;
+    public DateTime SelectedDateTime { get; private set; }
+
+    public DateTimePickerDialog(float scale) {
+        this.Text = "設定期程";
+        this.Width = (int)(300 * scale);
+        this.Height = (int)(250 * scale);
+        this.StartPosition = FormStartPosition.CenterParent;
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.MaximizeBox = false;
+        this.MinimizeBox = false;
+        this.BackColor = UITheme.BgGray;
+
+        Label l1 = new Label();
+        l1.Text = "請選擇日期：";
+        l1.AutoSize = true;
+        l1.Location = new Point((int)(20 * scale), (int)(20 * scale));
+        l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        
+        dpDate = new DateTimePicker();
+        dpDate.Format = DateTimePickerFormat.Custom;
+        dpDate.CustomFormat = "yyyy-MM-dd";
+        dpDate.Location = new Point((int)(20 * scale), (int)(45 * scale));
+        dpDate.Width = (int)(240 * scale);
+        dpDate.Font = UITheme.GetFont(11f);
+
+        Label l2 = new Label();
+        l2.Text = "請選擇時間：";
+        l2.AutoSize = true;
+        l2.Location = new Point((int)(20 * scale), (int)(85 * scale));
+        l2.Font = UITheme.GetFont(10f, FontStyle.Bold);
+
+        dpTime = new DateTimePicker();
+        dpTime.Format = DateTimePickerFormat.Custom;
+        dpTime.CustomFormat = "HH:mm";
+        dpTime.ShowUpDown = true;
+        dpTime.Location = new Point((int)(20 * scale), (int)(110 * scale));
+        dpTime.Width = (int)(240 * scale);
+        dpTime.Font = UITheme.GetFont(11f);
+
+        Button btnOk = new Button();
+        btnOk.Text = "確認";
+        btnOk.Location = new Point((int)(160 * scale), (int)(160 * scale));
+        btnOk.Width = (int)(100 * scale);
+        btnOk.Height = (int)(35 * scale);
+        btnOk.DialogResult = DialogResult.OK;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnOk.FlatAppearance.BorderSize = 0;
+
+        btnOk.Click += (s, e) => {
+            SelectedDateTime = new DateTime(dpDate.Value.Year, dpDate.Value.Month, dpDate.Value.Day, dpTime.Value.Hour, dpTime.Value.Minute, 0);
+        };
+
+        this.Controls.Add(l1);
+        this.Controls.Add(dpDate);
+        this.Controls.Add(l2);
+        this.Controls.Add(dpTime);
+        this.Controls.Add(btnOk);
+    }
+}
+
+// ============================================================
+// 【新增】全螢幕日曆看板視窗
+// ============================================================
+public class TaskCalendarWindow : Form {
+    private ComboBox cmbMode, cmbYear, cmbMonth;
+    private TableLayoutPanel calendarGrid;
+    private FlowLayoutPanel unassignedPanel;
+    private float scale;
+
+    public TaskCalendarWindow(string defaultType) {
+        this.scale = this.DeviceDpi / 96f;
+        this.Text = "日曆任務總覽";
+        this.WindowState = FormWindowState.Maximized;
+        this.BackColor = UITheme.BgGray;
+
+        // 頂部控制列
+        Panel topPanel = new Panel();
+        topPanel.Dock = DockStyle.Top;
+        topPanel.Height = (int)(60 * scale);
+        topPanel.BackColor = UITheme.CardWhite;
+        
+        Label l1 = new Label();
+        l1.Text = "檢視模式：";
+        l1.AutoSize = true;
+        l1.Location = new Point((int)(20 * scale), (int)(20 * scale));
+        l1.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        topPanel.Controls.Add(l1);
+
+        cmbMode = new ComboBox();
+        cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbMode.Items.AddRange(new string[] { "總覽", "待辦", "待規", "行程" });
+        cmbMode.Width = (int)(100 * scale);
+        cmbMode.Location = new Point((int)(110 * scale), (int)(16 * scale));
+        cmbMode.Font = UITheme.GetFont(11f);
+        
+        string mapType = "總覽";
+        if (defaultType == "todo") mapType = "待辦";
+        if (defaultType == "plan") mapType = "待規";
+        if (defaultType == "schedule") mapType = "行程";
+        cmbMode.Text = mapType;
+        cmbMode.SelectedIndexChanged += (s, e) => RefreshData();
+        topPanel.Controls.Add(cmbMode);
+
+        Label l2 = new Label();
+        l2.Text = "年份：";
+        l2.AutoSize = true;
+        l2.Location = new Point((int)(230 * scale), (int)(20 * scale));
+        l2.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        topPanel.Controls.Add(l2);
+
+        cmbYear = new ComboBox();
+        cmbYear.DropDownStyle = ComboBoxStyle.DropDownList;
+        int curYear = DateTime.Now.Year;
+        for (int y = curYear - 2; y <= curYear + 5; y++) cmbYear.Items.Add(y.ToString());
+        cmbYear.Text = curYear.ToString();
+        cmbYear.Width = (int)(80 * scale);
+        cmbYear.Location = new Point((int)(280 * scale), (int)(16 * scale));
+        cmbYear.Font = UITheme.GetFont(11f);
+        cmbYear.SelectedIndexChanged += (s, e) => RefreshData();
+        topPanel.Controls.Add(cmbYear);
+
+        Label l3 = new Label();
+        l3.Text = "月份：";
+        l3.AutoSize = true;
+        l3.Location = new Point((int)(380 * scale), (int)(20 * scale));
+        l3.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        topPanel.Controls.Add(l3);
+
+        cmbMonth = new ComboBox();
+        cmbMonth.DropDownStyle = ComboBoxStyle.DropDownList;
+        for (int m = 1; m <= 12; m++) cmbMonth.Items.Add(m.ToString("D2"));
+        cmbMonth.Text = DateTime.Now.Month.ToString("D2");
+        cmbMonth.Width = (int)(60 * scale);
+        cmbMonth.Location = new Point((int)(430 * scale), (int)(16 * scale));
+        cmbMonth.Font = UITheme.GetFont(11f);
+        cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
+        topPanel.Controls.Add(cmbMonth);
+
+        Button btnToday = new Button();
+        btnToday.Text = "回到本月";
+        btnToday.Width = (int)(100 * scale);
+        btnToday.Height = (int)(32 * scale);
+        btnToday.Location = new Point((int)(520 * scale), (int)(15 * scale));
+        btnToday.BackColor = UITheme.AppleBlue;
+        btnToday.ForeColor = UITheme.CardWhite;
+        btnToday.FlatStyle = FlatStyle.Flat;
+        btnToday.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnToday.FlatAppearance.BorderSize = 0;
+        btnToday.Cursor = Cursors.Hand;
+        btnToday.Click += (s, e) => {
+            cmbYear.Text = DateTime.Now.Year.ToString();
+            cmbMonth.Text = DateTime.Now.Month.ToString("D2");
+        };
+        topPanel.Controls.Add(btnToday);
+
+        this.Controls.Add(topPanel);
+
+        // 主畫面切割 (70% 日曆, 30% 未排定期程)
+        TableLayoutPanel mainSplit = new TableLayoutPanel();
+        mainSplit.Dock = DockStyle.Fill;
+        mainSplit.ColumnCount = 2;
+        mainSplit.RowCount = 1;
+        mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
+        mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
+        mainSplit.Padding = new Padding((int)(10 * scale));
+
+        // 左側：日曆區域
+        TableLayoutPanel calWrapper = new TableLayoutPanel();
+        calWrapper.Dock = DockStyle.Fill;
+        calWrapper.RowCount = 2;
+        calWrapper.ColumnCount = 1;
+        calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(40 * scale)));
+        calWrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        TableLayoutPanel daysHeader = new TableLayoutPanel();
+        daysHeader.Dock = DockStyle.Fill;
+        daysHeader.ColumnCount = 7;
+        daysHeader.RowCount = 1;
+        string[] wDays = { "日", "一", "二", "三", "四", "五", "六" };
+        for (int i = 0; i < 7; i++) {
+            daysHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.28f));
+            Label dLbl = new Label();
+            dLbl.Text = wDays[i];
+            dLbl.Dock = DockStyle.Fill;
+            dLbl.TextAlign = ContentAlignment.MiddleCenter;
+            dLbl.Font = UITheme.GetFont(11f, FontStyle.Bold);
+            dLbl.ForeColor = (i == 0 || i == 6) ? UITheme.AppleRed : UITheme.TextMain;
+            daysHeader.Controls.Add(dLbl, i, 0);
+        }
+        calWrapper.Controls.Add(daysHeader, 0, 0);
+
+        calendarGrid = new TableLayoutPanel();
+        calendarGrid.Dock = DockStyle.Fill;
+        calendarGrid.ColumnCount = 7;
+        calendarGrid.RowCount = 6;
+        for (int i = 0; i < 7; i++) calendarGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.28f));
+        for (int i = 0; i < 6; i++) calendarGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 16.66f));
+        calendarGrid.CellBorderStyle = TableLayoutPanelCellBorderStyle.Single;
+        calendarGrid.BackColor = UITheme.CardWhite;
+        calWrapper.Controls.Add(calendarGrid, 0, 1);
+
+        mainSplit.Controls.Add(calWrapper, 0, 0);
+
+        // 右側：未設定期程任務
+        Panel rightPanel = new Panel();
+        rightPanel.Dock = DockStyle.Fill;
+        rightPanel.Padding = new Padding((int)(10 * scale), 0, 0, 0);
+        
+        Label rTitle = new Label();
+        rTitle.Text = "未排定期程清單";
+        rTitle.Dock = DockStyle.Top;
+        rTitle.Height = (int)(40 * scale);
+        rTitle.TextAlign = ContentAlignment.MiddleLeft;
+        rTitle.Font = UITheme.GetFont(12f, FontStyle.Bold);
+        rTitle.ForeColor = UITheme.AppleBlue;
+        rightPanel.Controls.Add(rTitle);
+
+        unassignedPanel = new FlowLayoutPanel();
+        unassignedPanel.Dock = DockStyle.Fill;
+        unassignedPanel.AutoScroll = true;
+        unassignedPanel.FlowDirection = FlowDirection.TopDown;
+        unassignedPanel.WrapContents = false;
+        unassignedPanel.BackColor = UITheme.BgGray;
+        rightPanel.Controls.Add(unassignedPanel);
+        unassignedPanel.BringToFront();
+
+        mainSplit.Controls.Add(rightPanel, 1, 0);
+        this.Controls.Add(mainSplit);
+
+        this.Load += (s, e) => RefreshData();
+    }
+
+    private string GetDbListType() {
+        if (cmbMode.Text == "待辦") return "todo";
+        if (cmbMode.Text == "待規") return "plan";
+        if (cmbMode.Text == "行程") return "schedule";
+        return "all";
+    }
+
+    public void RefreshData() {
+        calendarGrid.SuspendLayout();
+        unassignedPanel.SuspendLayout();
+        calendarGrid.Controls.Clear();
+        unassignedPanel.Controls.Clear();
+
+        int targetYear = int.Parse(cmbYear.Text);
+        int targetMonth = int.Parse(cmbMonth.Text);
+        string typeFilter = GetDbListType();
+
+        List<App_TodoList.TaskInfo> allTasks = new List<App_TodoList.TaskInfo>();
+        using (var conn = DbHelper.GetConnection()) {
+            conn.Open();
+            string sql = "SELECT Id, Text, Color, Note, CreatedTime, OrderIndex, DueDate, ListType FROM Tasks";
+            if (typeFilter != "all") sql += " WHERE ListType = @Type";
+            
+            using (var cmd = new SqliteCommand(sql, conn)) {
+                if (typeFilter != "all") cmd.Parameters.AddWithValue("@Type", typeFilter);
+                using (var reader = cmd.ExecuteReader()) {
+                    while (reader.Read()) {
+                        var t = new App_TodoList.TaskInfo();
+                        t.Id = reader.GetInt32(0);
+                        t.Text = reader.GetString(1);
+                        t.Color = reader.GetString(2);
+                        t.Note = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                        t.Time = reader.GetDateTime(4);
+                        t.OrderIndex = reader.GetInt32(5);
+                        t.DueDate = reader.IsDBNull(6) ? "" : reader.GetString(6);
+                        
+                        string lType = reader.GetString(7);
+                        string pfx = "";
+                        if (typeFilter == "all") {
+                            if (lType == "todo") pfx = "[待辦] ";
+                            if (lType == "plan") pfx = "[待規] ";
+                            if (lType == "schedule") pfx = "[行程] ";
+                        }
+                        t.Text = pfx + t.Text;
+                        allTasks.Add(t);
+                    }
+                }
+            }
+        }
+
+        // 分離有日期與無日期的任務
+        var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
+        var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
+
+        // 填滿右側無日期清單
+        foreach(var t in unassignedTasks) {
+            Label lbl = new Label();
+            lbl.Text = t.Text;
+            lbl.Width = unassignedPanel.ClientSize.Width - (int)(20 * scale) > 0 ? unassignedPanel.ClientSize.Width - (int)(20 * scale) : (int)(200 * scale);
+            lbl.AutoSize = true;
+            lbl.Margin = new Padding((int)(5 * scale));
+            lbl.Padding = new Padding((int)(10 * scale));
+            lbl.BackColor = UITheme.CardWhite;
+            lbl.ForeColor = Color.FromName(t.Color);
+            lbl.Font = UITheme.GetFont(10.5f);
+            lbl.Cursor = Cursors.Hand;
+            lbl.BorderStyle = BorderStyle.FixedSingle;
+            
+            lbl.DoubleClick += (s, e) => {
+                CalendarTaskEditForm editF = new CalendarTaskEditForm(t, this);
+                editF.ShowDialog();
+            };
+            unassignedPanel.Controls.Add(lbl);
+        }
+
+        // 畫日曆
+        DateTime firstDay = new DateTime(targetYear, targetMonth, 1);
+        int daysInMonth = DateTime.DaysInMonth(targetYear, targetMonth);
+        int startDayOfWeek = (int)firstDay.DayOfWeek; 
+
+        int currentDay = 1;
+        for (int row = 0; row < 6; row++) {
+            for (int col = 0; col < 7; col++) {
+                FlowLayoutPanel cell = new FlowLayoutPanel();
+                cell.Dock = DockStyle.Fill;
+                cell.FlowDirection = FlowDirection.TopDown;
+                cell.WrapContents = false;
+                cell.AutoScroll = true;
+                cell.Margin = new Padding(0);
+
+                if (row == 0 && col < startDayOfWeek) {
+                    cell.BackColor = Color.FromArgb(245, 245, 245);
+                } else if (currentDay > daysInMonth) {
+                    cell.BackColor = Color.FromArgb(245, 245, 245);
+                } else {
+                    Label dayNum = new Label();
+                    dayNum.Text = currentDay.ToString();
+                    dayNum.AutoSize = true;
+                    dayNum.Font = UITheme.GetFont(10f, FontStyle.Bold);
+                    dayNum.ForeColor = Color.Gray;
+                    dayNum.Margin = new Padding((int)(2 * scale));
+                    
+                    if (targetYear == DateTime.Now.Year && targetMonth == DateTime.Now.Month && currentDay == DateTime.Now.Day) {
+                        dayNum.ForeColor = UITheme.CardWhite;
+                        dayNum.BackColor = UITheme.AppleBlue;
+                    }
+                    cell.Controls.Add(dayNum);
+
+                    string dateMatchStr = new DateTime(targetYear, targetMonth, currentDay).ToString("yyyy-MM-dd");
+                    var dayTasks = assignedTasks.Where(t => t.DueDate.StartsWith(dateMatchStr)).OrderBy(t => t.DueDate).ToList();
+
+                    foreach (var t in dayTasks) {
+                        string timeOnly = "";
+                        if (t.DueDate.Length >= 16) {
+                            timeOnly = t.DueDate.Substring(11, 5) + " ";
+                        }
+                        
+                        Label tLbl = new Label();
+                        tLbl.Text = timeOnly + t.Text;
+                        tLbl.AutoSize = true;
+                        tLbl.MaximumSize = new Size((int)(calendarGrid.Width / 7f) - (int)(10 * scale), 0);
+                        tLbl.Margin = new Padding((int)(2 * scale), 0, 0, (int)(4 * scale));
+                        tLbl.Font = UITheme.GetFont(9f);
+                        tLbl.ForeColor = Color.FromName(t.Color);
+                        tLbl.Cursor = Cursors.Hand;
+                        
+                        tLbl.DoubleClick += (s, e) => {
+                            CalendarTaskEditForm editF = new CalendarTaskEditForm(t, this);
+                            editF.ShowDialog();
+                        };
+                        cell.Controls.Add(tLbl);
+                    }
+                    currentDay++;
+                }
+                calendarGrid.Controls.Add(cell, col, row);
+            }
+        }
+        
+        calendarGrid.ResumeLayout(true);
+        unassignedPanel.ResumeLayout(true);
+    }
+}
+
+// ============================================================
+// 【新增】日曆專用編輯視窗 (連點兩下觸發)
+// ============================================================
+public class CalendarTaskEditForm : Form {
+    private App_TodoList.TaskInfo task;
+    private TaskCalendarWindow parent;
+    private float scale;
+
+    public CalendarTaskEditForm(App_TodoList.TaskInfo t, TaskCalendarWindow p) {
+        this.task = t;
+        this.parent = p;
+        this.scale = this.DeviceDpi / 96f;
+
+        this.Text = "編輯任務內容";
+        this.Width = (int)(450 * scale);
+        this.Height = (int)(480 * scale);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.MaximizeBox = false;
+        this.BackColor = UITheme.BgGray;
+
+        FlowLayoutPanel f = new FlowLayoutPanel();
+        f.Dock = DockStyle.Fill;
+        f.FlowDirection = FlowDirection.TopDown;
+        f.Padding = new Padding((int)(20 * scale));
+
+        Label l1 = new Label();
+        l1.Text = "任務名稱：";
+        l1.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        f.Controls.Add(l1);
+
+        TextBox txtName = new TextBox();
+        // 移除總覽加上去的前綴
+        string cleanName = t.Text.Replace("[待辦] ", "").Replace("[待規] ", "").Replace("[行程] ", "");
+        txtName.Text = cleanName;
+        txtName.Width = (int)(390 * scale);
+        txtName.Font = UITheme.GetFont(11f);
+        f.Controls.Add(txtName);
+
+        Label l2 = new Label();
+        l2.Text = "備註說明：";
+        l2.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        l2.Margin = new Padding(0, (int)(15 * scale), 0, 0);
+        f.Controls.Add(l2);
+
+        TextBox txtNote = new TextBox();
+        txtNote.Text = t.Note;
+        txtNote.Width = (int)(390 * scale);
+        txtNote.Height = (int)(120 * scale);
+        txtNote.Multiline = true;
+        txtNote.ScrollBars = ScrollBars.Vertical;
+        txtNote.Font = UITheme.GetFont(10.5f);
+        f.Controls.Add(txtNote);
+
+        Label l3 = new Label();
+        l3.Text = "設定期程 (空白代表未排定)：";
+        l3.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
+        f.Controls.Add(l3);
+
+        TextBox txtDate = new TextBox();
+        txtDate.Text = t.DueDate;
+        txtDate.Width = (int)(390 * scale);
+        txtDate.Font = UITheme.GetFont(11f);
+        f.Controls.Add(txtDate);
+        
+        Label hint = new Label();
+        hint.Text = "格式：yyyy-MM-dd HH:mm";
+        hint.ForeColor = Color.Gray;
+        hint.AutoSize = true;
+        f.Controls.Add(hint);
+
+        Button btnOk = new Button();
+        btnOk.Text = "儲存修改";
+        btnOk.Width = (int)(390 * scale);
+        btnOk.Height = (int)(45 * scale);
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        btnOk.Margin = new Padding(0, (int)(20 * scale), 0, 0);
+        btnOk.FlatAppearance.BorderSize = 0;
+        
+        btnOk.Click += (s, e) => {
+            using (var conn = DbHelper.GetConnection()) {
+                conn.Open();
+                string sql = "UPDATE Tasks SET Text=@T, Note=@N, DueDate=@D WHERE Id=@Id";
+                using (var cmd = new SqliteCommand(sql, conn)) {
+                    cmd.Parameters.AddWithValue("@T", txtName.Text.Trim());
+                    cmd.Parameters.AddWithValue("@N", txtNote.Text.Trim());
+                    cmd.Parameters.AddWithValue("@D", txtDate.Text.Trim());
+                    cmd.Parameters.AddWithValue("@Id", t.Id);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            parent.RefreshData();
+            this.Close();
+        };
+
+        f.Controls.Add(btnOk);
+        this.Controls.Add(f);
     }
 }
