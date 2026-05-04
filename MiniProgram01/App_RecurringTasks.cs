@@ -661,6 +661,7 @@ public class AddRecurringTaskWindow : Form {
 
         Label l1 = new Label();
         l1.Text = "任務名稱：";
+        l1.AutoSize = true;
         l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l1); 
 
@@ -671,6 +672,7 @@ public class AddRecurringTaskWindow : Form {
 
         Label l2 = new Label();
         l2.Text = "詳細說明 (註)：";
+        l2.AutoSize = true;
         l2.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l2.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l2);
@@ -685,6 +687,7 @@ public class AddRecurringTaskWindow : Form {
         
         Label l3 = new Label();
         l3.Text = "任務類型：";
+        l3.AutoSize = true;
         l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l3.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l3);
@@ -700,6 +703,7 @@ public class AddRecurringTaskWindow : Form {
 
         lblCycle = new Label();
         lblCycle.Text = "週期類型：";
+        lblCycle.AutoSize = true;
         lblCycle.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblCycle.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblCycle);
@@ -724,6 +728,7 @@ public class AddRecurringTaskWindow : Form {
 
         lblDate = new Label();
         lblDate.Text = "指定日期：";
+        lblDate.AutoSize = true;
         lblDate.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblDate.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblDate);
@@ -778,6 +783,7 @@ public class AddRecurringTaskWindow : Form {
 
         Label l4 = new Label();
         l4.Text = "觸發時間：";
+        l4.AutoSize = true;
         l4.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l4.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l4);
@@ -852,6 +858,7 @@ public class EditRecurringTaskWindow : Form {
 
         Label l1 = new Label();
         l1.Text = "任務名稱：";
+        l1.AutoSize = true;
         l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l1); 
 
@@ -863,6 +870,7 @@ public class EditRecurringTaskWindow : Form {
 
         Label l2 = new Label();
         l2.Text = "詳細說明 (註)：";
+        l2.AutoSize = true;
         l2.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l2.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l2);
@@ -878,6 +886,7 @@ public class EditRecurringTaskWindow : Form {
         
         Label l3 = new Label();
         l3.Text = "任務類型：";
+        l3.AutoSize = true;
         l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l3.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l3);
@@ -894,6 +903,7 @@ public class EditRecurringTaskWindow : Form {
 
         lblCycle = new Label();
         lblCycle.Text = "週期類型：";
+        lblCycle.AutoSize = true;
         lblCycle.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblCycle.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblCycle);
@@ -918,6 +928,7 @@ public class EditRecurringTaskWindow : Form {
 
         lblDate = new Label();
         lblDate.Text = "指定日期：";
+        lblDate.AutoSize = true;
         lblDate.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         lblDate.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(lblDate);
@@ -975,11 +986,16 @@ public class EditRecurringTaskWindow : Form {
         }; 
         
         if (t.MonthStr != "特定日期") {
-            cmD.Text = t.DateStr;
+            if (cmD.Items.Contains(t.DateStr)) {
+                cmD.SelectedItem = t.DateStr;
+            } else {
+                cmD.Text = t.DateStr;
+            }
         }
 
         Label l4 = new Label();
         l4.Text = "觸發時間：";
+        l4.AutoSize = true;
         l4.Margin = new Padding(0, (int)(15 * scale), 0, 0);
         l4.Font = UITheme.GetFont(10f, FontStyle.Bold);
         f.Controls.Add(l4);
@@ -1389,7 +1405,6 @@ public class AllTasksViewWindow : Form {
                         valE.InCellDropdown = true;
                         valE.ShowErrorMessage = false;
 
-                        // 【修復】移除造成編譯失敗的 Activate()
                         workbook.SaveAs(sfd.FileName);
                         MessageBox.Show("Excel 檔案已成功導出！\n\n(已在B~E欄自動建立快速下拉選單)", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
@@ -1400,6 +1415,7 @@ public class AllTasksViewWindow : Form {
         }
     }
 
+    // 【修改】智慧標題綁定與防呆匯入
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -1408,21 +1424,56 @@ public class AllTasksViewWindow : Form {
                 try {
                     using (var workbook = new XLWorkbook(ofd.FileName)) {
                         var sheet = workbook.Worksheets.First();
-                        var rows = sheet.RangeUsed().RowsUsed().Skip(1);
+                        var headerRow = sheet.Row(1);
+                        
+                        Dictionary<string, int> colMap = new Dictionary<string, int>();
+                        foreach (var cell in headerRow.CellsUsed()) {
+                            string hText = cell.GetString().Trim();
+                            if (!string.IsNullOrEmpty(hText)) {
+                                colMap[hText] = cell.Address.ColumnNumber;
+                            }
+                        }
 
+                        if (!colMap.ContainsKey("任務名稱")) {
+                            MessageBox.Show("匯入失敗：找不到『任務名稱』標題欄位！", "格式錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+
+                        var rows = sheet.RangeUsed().RowsUsed().Skip(1);
                         List<App_RecurringTasks.RecurringTask> importList = new List<App_RecurringTasks.RecurringTask>();
 
                         foreach (var r in rows) {
-                            string name = r.Cell(1).GetString();
+                            string name = r.Cell(colMap["任務名稱"]).GetString().Trim();
                             if (string.IsNullOrWhiteSpace(name)) continue;
+
+                            string type = colMap.ContainsKey("任務類型") ? r.Cell(colMap["任務類型"]).GetString().Trim() : "循環";
+                            string month = colMap.ContainsKey("週期類型") ? r.Cell(colMap["週期類型"]).GetString().Trim() : "每天";
+                            string date = colMap.ContainsKey("指定日期") ? r.Cell(colMap["指定日期"]).GetString().Trim() : "";
+                            string time = colMap.ContainsKey("觸發時間") ? r.Cell(colMap["觸發時間"]).GetString().Trim().TrimStart('\'') : "08:00";
+                            string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
+
+                            if (type == "單次" || type == "到期日" || (date.Length >= 8 && date.Contains("-"))) {
+                                month = "特定日期";
+                                DateTime parsedDate;
+                                if (DateTime.TryParse(date, out parsedDate)) {
+                                    date = parsedDate.ToString("yyyy-MM-dd");
+                                }
+                            }
+
+                            DateTime parsedTime;
+                            if (DateTime.TryParse(time, out parsedTime)) {
+                                time = parsedTime.ToString("HH:mm");
+                            } else {
+                                time = "08:00"; 
+                            }
 
                             App_RecurringTasks.RecurringTask t = new App_RecurringTasks.RecurringTask();
                             t.Name = name;
-                            t.TaskType = r.Cell(2).GetString();
-                            t.MonthStr = r.Cell(3).GetString();
-                            t.DateStr = r.Cell(4).GetString();
-                            t.TimeStr = r.Cell(5).GetString().TrimStart('\'');
-                            t.Note = r.Cell(6).GetString();
+                            t.TaskType = type;
+                            t.MonthStr = month;
+                            t.DateStr = date;
+                            t.TimeStr = time;
+                            t.Note = note;
                             
                             importList.Add(t);
                         }
