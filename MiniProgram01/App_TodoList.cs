@@ -304,7 +304,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // 【新增】提供給日曆使用的靜默刪除功能 (不觸發主清單的完整重繪，避免卡頓)
     public void DeleteCalendarTask(int taskId) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
@@ -313,12 +312,10 @@ public class App_TodoList : UserControl {
                 cmd.ExecuteNonQuery();
             }
         }
-        // 同步刪除記憶體中的資料
         var itemToRemove = taskDataList.FirstOrDefault(t => t.Id == taskId);
         if (itemToRemove != null) {
             taskDataList.Remove(itemToRemove);
         }
-        // 如果主畫面恰好有這個卡片，也直接銷毀它
         foreach(Control c in taskContainer.Controls) {
             if (c is Panel p && p.Tag is TaskInfo ti && ti.Id == taskId) {
                 taskContainer.Controls.Remove(p);
@@ -336,13 +333,14 @@ public class App_TodoList : UserControl {
         card.Width = startWidth;
         card.AutoSize = true;
         card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
-        card.BackColor = UITheme.CardWhite;
+        card.BackColor = UITheme.BgGray; // 【修改】白底改為背景色
         card.Tag = task;
 
         card.Paint += (s, e) => {
-            UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
+            // 【修改】底色改為背景色，保留邊框
+            UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1)) {
+            using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                 e.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale)));
             }
         };
@@ -357,10 +355,10 @@ public class App_TodoList : UserControl {
 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(35 * scale))); 
         item.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 註
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 轉
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 色
-        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); // 修
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); 
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); 
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); 
+        item.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(32 * scale))); 
         
         CheckBox chk = new CheckBox();
         chk.Dock = DockStyle.Fill;
@@ -379,7 +377,14 @@ public class App_TodoList : UserControl {
                     }
                 }
                 taskDataList.Remove(task);
+                
+                // 【修改】防跳轉機制：記錄當前滾動位置，移除後立刻復原
+                Point scrollPos = new Point(Math.Abs(taskContainer.AutoScrollPosition.X), Math.Abs(taskContainer.AutoScrollPosition.Y));
+                taskContainer.SuspendLayout();
                 taskContainer.Controls.Remove(card);
+                card.Dispose();
+                taskContainer.ResumeLayout(true);
+                taskContainer.AutoScrollPosition = scrollPos;
             }
         };
 
@@ -433,7 +438,7 @@ public class App_TodoList : UserControl {
         };
 
         Button btnMove = CreateCardButton("轉");
-        btnMove.BackColor = Color.FromArgb(235, 240, 255);
+        btnMove.BackColor = Color.FromArgb(225, 230, 245);
         btnMove.ForeColor = UITheme.AppleBlue;
         btnMove.Click += (s, e) => {
             ContextMenuStrip menu = new ContextMenuStrip();
@@ -503,7 +508,7 @@ public class App_TodoList : UserControl {
         btn.Height = (int)(32 * scale);
         btn.FlatStyle = FlatStyle.Flat;
         btn.Cursor = Cursors.Hand;
-        btn.BackColor = UITheme.BgGray;
+        btn.BackColor = UITheme.BgGray; // 按鈕底色也與背景融合
         btn.Font = UITheme.GetFont(9f, FontStyle.Bold);
         btn.Margin = new Padding((int)(2 * scale));
         btn.FlatAppearance.BorderSize = 0;
@@ -767,9 +772,6 @@ public class App_TodoList : UserControl {
     }
 }
 
-// ============================================================
-// 日期時間選擇視窗
-// ============================================================
 public class DateTimePickerDialog : Form {
     private DateTimePicker dpDate;
     private DateTimePicker dpTime;
@@ -837,9 +839,6 @@ public class DateTimePickerDialog : Form {
     }
 }
 
-// ============================================================
-// 全螢幕日曆看板視窗
-// ============================================================
 public class TaskCalendarWindow : Form {
     private App_TodoList parentApp;
     private ComboBox cmbMode, cmbYear, cmbMonth;
@@ -855,7 +854,6 @@ public class TaskCalendarWindow : Form {
         this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
 
-        // 【修改】將頂部列改為絕對高度防止被下方日曆推擠
         Panel topPanel = new Panel();
         topPanel.Dock = DockStyle.Top;
         topPanel.Height = (int)(60 * scale);
@@ -940,7 +938,6 @@ public class TaskCalendarWindow : Form {
         };
         topPanel.Controls.Add(btnToday);
 
-        // 【修改】主排版使用嚴格的 TableLayoutPanel，保證上方不被遮擋
         TableLayoutPanel rootSplit = new TableLayoutPanel();
         rootSplit.Dock = DockStyle.Fill;
         rootSplit.RowCount = 2;
@@ -1126,7 +1123,6 @@ public class TaskCalendarWindow : Form {
         var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
         var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
 
-        // 【修改】右側無期程清單去背化 (與背景色融合)
         foreach(var t in unassignedTasks) {
             Panel uPanel = new Panel();
             int safeWidth = unassignedPanel.ClientSize.Width - (int)(20 * scale);
@@ -1142,7 +1138,7 @@ public class TaskCalendarWindow : Form {
             chk.CheckedChanged += (s, e) => {
                 if (chk.Checked) {
                     parentApp.DeleteCalendarTask(t.Id);
-                    uPanel.Dispose(); // 【優化】不全頁重繪，打勾瞬間秒刪 UI
+                    uPanel.Dispose(); 
                 }
             };
 
@@ -1261,7 +1257,7 @@ public class TaskCalendarWindow : Form {
                 chk.CheckedChanged += (s, e) => {
                     if(chk.Checked) {
                         parentApp.DeleteCalendarTask(t.Id);
-                        tPanel.Dispose(); // 【優化】不全頁重繪，打勾瞬間秒刪 UI
+                        tPanel.Dispose(); 
                     }
                 };
 
@@ -1289,9 +1285,6 @@ public class TaskCalendarWindow : Form {
     }
 }
 
-// ============================================================
-// 日曆專用編輯視窗 (連點兩下觸發)
-// ============================================================
 public class CalendarTaskEditForm : Form {
     private App_TodoList.TaskInfo task;
     private TaskCalendarWindow parent;
