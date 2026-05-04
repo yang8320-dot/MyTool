@@ -28,7 +28,7 @@ public class App_TodoList : UserControl {
         public string Note;
         public DateTime Time;
         public int OrderIndex;
-        public string DueDate; // 【新增】存放選擇的期程日期
+        public string DueDate; 
     }
     
     private List<TaskInfo> taskDataList = new List<TaskInfo>();
@@ -48,20 +48,18 @@ public class App_TodoList : UserControl {
         this.BackColor = UITheme.BgGray;
         this.Padding = new Padding((int)(10 * scale));
 
-        // 【資料庫無痛升級】自動補上 DueDate 欄位
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             try { 
                 using (var cmd = new SqliteCommand("ALTER TABLE Tasks ADD COLUMN DueDate TEXT", conn)) {
                     cmd.ExecuteNonQuery();
                 }
-            } catch { /* 欄位若已存在會引發例外，忽略即可 */ }
+            } catch { }
         }
 
-        // --- 頂部控制區 (兩排式設計) ---
         TableLayoutPanel topBar = new TableLayoutPanel();
         topBar.Dock = DockStyle.Top;
-        topBar.Height = (int)(90 * scale); // 加高以容納兩排
+        topBar.Height = (int)(90 * scale); 
         topBar.RowCount = 2;
         topBar.ColumnCount = 4;
         topBar.Padding = new Padding(0);
@@ -71,10 +69,9 @@ public class App_TodoList : UserControl {
 
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(60 * scale))); 
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));               
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(90 * scale))); // 日期勾選寬度
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(80 * scale))); // 新增按鈕寬度
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(90 * scale))); 
+        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(80 * scale))); 
 
-        // 第一排元件
         Label lblTitle = new Label();
         lblTitle.Text = "項目：";
         lblTitle.Dock = DockStyle.Fill;
@@ -108,7 +105,6 @@ public class App_TodoList : UserControl {
         btnAdd.FlatAppearance.BorderSize = 0;
         btnAdd.Click += new EventHandler(BtnAdd_Click);
 
-        // 第二排元件 (放在一個 FlowLayoutPanel 跨欄顯示)
         FlowLayoutPanel row2Panel = new FlowLayoutPanel();
         row2Panel.Dock = DockStyle.Fill;
         row2Panel.FlowDirection = FlowDirection.LeftToRight;
@@ -147,7 +143,6 @@ public class App_TodoList : UserControl {
         row2Panel.Controls.Add(btnCalendar);
         row2Panel.Controls.Add(btnPrint);
 
-        // 加入排版
         topBar.Controls.Add(lblTitle, 0, 0);
         topBar.Controls.Add(inputField, 1, 0);
         topBar.Controls.Add(chkDate, 2, 0);
@@ -156,7 +151,6 @@ public class App_TodoList : UserControl {
         topBar.SetColumnSpan(row2Panel, 3);
         topBar.Controls.Add(row2Panel, 1, 1);
 
-        // --- 任務清單容器 ---
         taskContainer = new FlowLayoutPanel();
         taskContainer.Dock = DockStyle.Fill;
         taskContainer.AutoScroll = true;
@@ -214,7 +208,7 @@ public class App_TodoList : UserControl {
                 dueDateStr = selectedDt.ToString("yyyy-MM-dd HH:mm");
                 noteAddon = $"期程：{selectedDt.ToString("yyyy年MM月dd日-時間HH:mm")}";
             } else {
-                return; // 取消則不新增
+                return; 
             }
         }
 
@@ -223,7 +217,6 @@ public class App_TodoList : UserControl {
         chkDate.Checked = false;
     }
 
-    // 【修改】加入期程日期與備註生成的邏輯
     public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "", string dueDateStr = "", string noteAddon = "") {
         text = text.Trim(); 
         if (string.IsNullOrEmpty(text)) return;
@@ -365,7 +358,6 @@ public class App_TodoList : UserControl {
             }
         };
 
-        // 如果有期程，在標題顯示小標籤
         string displayTxt = task.Text;
         if (!string.IsNullOrEmpty(task.DueDate)) {
             displayTxt = $"[期] {task.Text}";
@@ -642,6 +634,7 @@ public class App_TodoList : UserControl {
         form.FormBorderStyle = FormBorderStyle.FixedDialog;
         form.MaximizeBox = false;
         form.MinimizeBox = false;
+        form.TopMost = true; // 【修復】強制在最上層
         form.BackColor = UITheme.BgGray;
 
         Label lbl = new Label();
@@ -698,6 +691,7 @@ public class App_TodoList : UserControl {
         form.FormBorderStyle = FormBorderStyle.FixedDialog;
         form.MaximizeBox = false;
         form.MinimizeBox = false;
+        form.TopMost = true; // 【修復】強制在最上層
         form.BackColor = UITheme.BgGray;
         
         Label lbl = new Label();
@@ -758,12 +752,13 @@ public class DateTimePickerDialog : Form {
 
     public DateTimePickerDialog(float scale) {
         this.Text = "設定期程";
-        this.Width = (int)(300 * scale);
-        this.Height = (int)(250 * scale);
-        this.StartPosition = FormStartPosition.CenterParent;
+        this.ClientSize = new Size((int)(300 * scale), (int)(220 * scale)); // 【修復】明確定義 ClientSize
+        this.StartPosition = FormStartPosition.CenterScreen; // 【修復】強制螢幕置中
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
+        this.TopMost = true; // 【修復】永遠在最上層，避免被主視窗蓋住
+        this.ShowInTaskbar = false; 
         this.BackColor = UITheme.BgGray;
 
         Label l1 = new Label();
@@ -830,6 +825,7 @@ public class TaskCalendarWindow : Form {
         this.scale = this.DeviceDpi / 96f;
         this.Text = "日曆任務總覽";
         this.WindowState = FormWindowState.Maximized;
+        this.TopMost = true; // 【修復】永遠在最上層，蓋過主視窗
         this.BackColor = UITheme.BgGray;
 
         // 頂部控制列
@@ -1039,11 +1035,9 @@ public class TaskCalendarWindow : Form {
             }
         }
 
-        // 分離有日期與無日期的任務
         var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
         var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
 
-        // 填滿右側無日期清單
         foreach(var t in unassignedTasks) {
             Label lbl = new Label();
             lbl.Text = t.Text;
@@ -1064,7 +1058,6 @@ public class TaskCalendarWindow : Form {
             unassignedPanel.Controls.Add(lbl);
         }
 
-        // 畫日曆
         DateTime firstDay = new DateTime(targetYear, targetMonth, 1);
         int daysInMonth = DateTime.DaysInMonth(targetYear, targetMonth);
         int startDayOfWeek = (int)firstDay.DayOfWeek; 
@@ -1151,6 +1144,7 @@ public class CalendarTaskEditForm : Form {
         this.StartPosition = FormStartPosition.CenterScreen;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
+        this.TopMost = true; // 【修復】強制在最上層
         this.BackColor = UITheme.BgGray;
 
         FlowLayoutPanel f = new FlowLayoutPanel();
@@ -1164,7 +1158,6 @@ public class CalendarTaskEditForm : Form {
         f.Controls.Add(l1);
 
         TextBox txtName = new TextBox();
-        // 移除總覽加上去的前綴
         string cleanName = t.Text.Replace("[待辦] ", "").Replace("[待規] ", "").Replace("[行程] ", "");
         txtName.Text = cleanName;
         txtName.Width = (int)(390 * scale);
