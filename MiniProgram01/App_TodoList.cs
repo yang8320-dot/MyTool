@@ -10,7 +10,7 @@ using System.Windows.Forms;
 using System.Linq;
 using System.Threading;
 using Microsoft.Data.Sqlite;
-using System.Globalization; // 【新增】為了動態計算永久農曆假日
+using System.Globalization; 
 
 public class App_TodoList : UserControl {
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
@@ -171,9 +171,7 @@ public class App_TodoList : UserControl {
             if (safeWidth > 0) {
                 taskContainer.SuspendLayout();
                 foreach (Control c in taskContainer.Controls) {
-                    if (c is Panel) {
-                        c.Width = safeWidth;
-                    }
+                    if (c is Panel) c.Width = safeWidth;
                 }
                 taskContainer.ResumeLayout(true);
             }
@@ -199,9 +197,7 @@ public class App_TodoList : UserControl {
 
     private void ExecuteAddLogic() {
         string text = inputField.Text.Trim();
-        if (string.IsNullOrEmpty(text)) {
-            return;
-        }
+        if (string.IsNullOrEmpty(text)) return;
 
         string dueDateStr = "";
         string noteAddon = "";
@@ -224,9 +220,7 @@ public class App_TodoList : UserControl {
 
     public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "", string dueDateStr = "", string noteAddon = "") {
         text = text.Trim(); 
-        if (string.IsNullOrEmpty(text)) {
-            return;
-        }
+        if (string.IsNullOrEmpty(text)) return;
         
         if (source == "手動") {
             string dateNote = $"本項目於：{DateTime.Now:yyyy年MM月dd日} 新增";
@@ -310,7 +304,8 @@ public class App_TodoList : UserControl {
         }
     }
 
-    public void DeleteTaskAndRefresh(int taskId) {
+    // 【新增】提供給日曆使用的靜默刪除功能 (不觸發主清單的完整重繪，避免卡頓)
+    public void DeleteCalendarTask(int taskId) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             using (var cmd = new SqliteCommand("DELETE FROM Tasks WHERE Id = @Id", conn)) {
@@ -318,7 +313,19 @@ public class App_TodoList : UserControl {
                 cmd.ExecuteNonQuery();
             }
         }
-        LoadTasksFromDb(); 
+        // 同步刪除記憶體中的資料
+        var itemToRemove = taskDataList.FirstOrDefault(t => t.Id == taskId);
+        if (itemToRemove != null) {
+            taskDataList.Remove(itemToRemove);
+        }
+        // 如果主畫面恰好有這個卡片，也直接銷毀它
+        foreach(Control c in taskContainer.Controls) {
+            if (c is Panel p && p.Tag is TaskInfo ti && ti.Id == taskId) {
+                taskContainer.Controls.Remove(p);
+                p.Dispose();
+                break;
+            }
+        }
     }
 
     private void CreateTaskUICard(TaskInfo task, bool insertAtTop) {
@@ -364,7 +371,15 @@ public class App_TodoList : UserControl {
         
         chk.CheckedChanged += (s, e) => {
             if (chk.Checked) {
-                DeleteTaskAndRefresh(task.Id);
+                using (var conn = DbHelper.GetConnection()) {
+                    conn.Open();
+                    using (var cmd = new SqliteCommand("DELETE FROM Tasks WHERE Id = @Id", conn)) {
+                        cmd.Parameters.AddWithValue("@Id", task.Id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                taskDataList.Remove(task);
+                taskContainer.Controls.Remove(card);
             }
         };
 
@@ -534,9 +549,7 @@ public class App_TodoList : UserControl {
         if (draggedCard != null && dragInsertIndex != -1) {
             int targetIdx = dragInsertIndex;
             int currentIdx = taskContainer.Controls.GetChildIndex(draggedCard);
-            if (currentIdx < targetIdx) {
-                targetIdx--; 
-            }
+            if (currentIdx < targetIdx) targetIdx--; 
             
             taskContainer.Controls.SetChildIndex(draggedCard, targetIdx);
             
@@ -595,9 +608,7 @@ public class App_TodoList : UserControl {
                         while (currentLine < taskDataList.Count) {
                             var t = taskDataList[currentLine];
                             string mainTxt = "□ " + t.Text;
-                            if(!string.IsNullOrEmpty(t.DueDate)) {
-                                mainTxt = "□ [期] " + t.Text;
-                            }
+                            if(!string.IsNullOrEmpty(t.DueDate)) mainTxt = "□ [期] " + t.Text;
 
                             SizeF size = args.Graphics.MeasureString(mainTxt, txtFont, args.MarginBounds.Width);
                             
@@ -844,19 +855,17 @@ public class TaskCalendarWindow : Form {
         this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
 
-        // 【修改】頂部控制列改為自適應寬度
-        FlowLayoutPanel topPanel = new FlowLayoutPanel();
+        // 【修改】將頂部列改為絕對高度防止被下方日曆推擠
+        Panel topPanel = new Panel();
         topPanel.Dock = DockStyle.Top;
-        topPanel.AutoSize = true;
-        topPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        topPanel.MinimumSize = new Size(0, (int)(60 * scale));
+        topPanel.Height = (int)(60 * scale);
         topPanel.BackColor = UITheme.CardWhite;
         topPanel.Padding = new Padding((int)(10 * scale));
         
         Label l1 = new Label();
         l1.Text = "檢視模式：";
         l1.AutoSize = true;
-        l1.Margin = new Padding(0, (int)(8 * scale), 0, 0);
+        l1.Location = new Point((int)(15 * scale), (int)(18 * scale));
         l1.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l1);
 
@@ -864,7 +873,7 @@ public class TaskCalendarWindow : Form {
         cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbMode.Items.AddRange(new string[] { "總覽", "待辦", "待規", "行程" });
         cmbMode.Width = (int)(100 * scale);
-        cmbMode.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
+        cmbMode.Location = new Point((int)(100 * scale), (int)(15 * scale));
         cmbMode.Font = UITheme.GetFont(11f);
         
         string mapType = "總覽";
@@ -878,7 +887,7 @@ public class TaskCalendarWindow : Form {
         Label l2 = new Label();
         l2.Text = "年份：";
         l2.AutoSize = true;
-        l2.Margin = new Padding(0, (int)(8 * scale), 0, 0);
+        l2.Location = new Point((int)(220 * scale), (int)(18 * scale));
         l2.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l2);
 
@@ -890,7 +899,7 @@ public class TaskCalendarWindow : Form {
         }
         cmbYear.Text = curYear.ToString();
         cmbYear.Width = (int)(80 * scale);
-        cmbYear.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
+        cmbYear.Location = new Point((int)(270 * scale), (int)(15 * scale));
         cmbYear.Font = UITheme.GetFont(11f);
         cmbYear.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbYear);
@@ -898,7 +907,7 @@ public class TaskCalendarWindow : Form {
         Label l3 = new Label();
         l3.Text = "月份：";
         l3.AutoSize = true;
-        l3.Margin = new Padding(0, (int)(8 * scale), 0, 0);
+        l3.Location = new Point((int)(370 * scale), (int)(18 * scale));
         l3.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l3);
 
@@ -909,7 +918,7 @@ public class TaskCalendarWindow : Form {
         }
         cmbMonth.Text = DateTime.Now.Month.ToString("D2");
         cmbMonth.Width = (int)(60 * scale);
-        cmbMonth.Margin = new Padding(0, (int)(4 * scale), (int)(20 * scale), 0);
+        cmbMonth.Location = new Point((int)(420 * scale), (int)(15 * scale));
         cmbMonth.Font = UITheme.GetFont(11f);
         cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMonth);
@@ -918,7 +927,7 @@ public class TaskCalendarWindow : Form {
         btnToday.Text = "回到本月";
         btnToday.Width = (int)(100 * scale);
         btnToday.Height = (int)(32 * scale);
-        btnToday.Margin = new Padding(0, (int)(2 * scale), 0, 0);
+        btnToday.Location = new Point((int)(500 * scale), (int)(13 * scale));
         btnToday.BackColor = UITheme.AppleBlue;
         btnToday.ForeColor = UITheme.CardWhite;
         btnToday.FlatStyle = FlatStyle.Flat;
@@ -931,7 +940,17 @@ public class TaskCalendarWindow : Form {
         };
         topPanel.Controls.Add(btnToday);
 
-        // 主畫面切割 (70% 日曆, 30% 未排定期程)
+        // 【修改】主排版使用嚴格的 TableLayoutPanel，保證上方不被遮擋
+        TableLayoutPanel rootSplit = new TableLayoutPanel();
+        rootSplit.Dock = DockStyle.Fill;
+        rootSplit.RowCount = 2;
+        rootSplit.ColumnCount = 1;
+        rootSplit.Margin = new Padding(0);
+        rootSplit.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(60 * scale)));
+        rootSplit.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        
+        rootSplit.Controls.Add(topPanel, 0, 0);
+
         TableLayoutPanel mainSplit = new TableLayoutPanel();
         mainSplit.Dock = DockStyle.Fill;
         mainSplit.ColumnCount = 2;
@@ -940,19 +959,12 @@ public class TaskCalendarWindow : Form {
         mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
         mainSplit.Padding = new Padding((int)(10 * scale));
 
-        // 【修改】解決日曆邊界遮擋：排版層級設定
-        this.Controls.Add(topPanel);
-        this.Controls.Add(mainSplit);
-        topPanel.SendToBack();     // 強制讓 topPanel 佔據最上方邊界
-        mainSplit.BringToFront();  // 剩下的空間才給 mainSplit 填滿
-
-        // 左側：日曆區域
         TableLayoutPanel calWrapper = new TableLayoutPanel();
         calWrapper.Dock = DockStyle.Fill;
         calWrapper.RowCount = 2;
         calWrapper.ColumnCount = 1;
         calWrapper.Margin = new Padding(0);
-        calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(50 * scale))); // 【修改】加高高度防遮擋
+        calWrapper.RowStyles.Add(new RowStyle(SizeType.Absolute, (int)(40 * scale)));
         calWrapper.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         TableLayoutPanel daysHeader = new TableLayoutPanel();
@@ -988,7 +1000,6 @@ public class TaskCalendarWindow : Form {
 
         mainSplit.Controls.Add(calWrapper, 0, 0);
 
-        // 右側：未設定期程任務
         Panel rightPanel = new Panel();
         rightPanel.Dock = DockStyle.Fill;
         rightPanel.Padding = new Padding((int)(10 * scale), 0, 0, 0);
@@ -1012,6 +1023,9 @@ public class TaskCalendarWindow : Form {
         unassignedPanel.BringToFront();
 
         mainSplit.Controls.Add(rightPanel, 1, 0);
+        
+        rootSplit.Controls.Add(mainSplit, 0, 1);
+        this.Controls.Add(rootSplit);
 
         this.Load += (s, e) => RefreshData();
     }
@@ -1023,7 +1037,6 @@ public class TaskCalendarWindow : Form {
         return "all";
     }
 
-    // 【新增】永久強健的國定假日與農曆轉換引擎 (無需每年手動更新)
     private string GetHoliday(DateTime dt) {
         string dateStr = dt.ToString("MM-dd");
         
@@ -1113,6 +1126,7 @@ public class TaskCalendarWindow : Form {
         var unassignedTasks = allTasks.Where(t => string.IsNullOrEmpty(t.DueDate)).ToList();
         var assignedTasks = allTasks.Where(t => !string.IsNullOrEmpty(t.DueDate)).ToList();
 
+        // 【修改】右側無期程清單去背化 (與背景色融合)
         foreach(var t in unassignedTasks) {
             Panel uPanel = new Panel();
             int safeWidth = unassignedPanel.ClientSize.Width - (int)(20 * scale);
@@ -1127,8 +1141,8 @@ public class TaskCalendarWindow : Form {
             chk.Cursor = Cursors.Hand;
             chk.CheckedChanged += (s, e) => {
                 if (chk.Checked) {
-                    parentApp.DeleteTaskAndRefresh(t.Id);
-                    RefreshData();
+                    parentApp.DeleteCalendarTask(t.Id);
+                    uPanel.Dispose(); // 【優化】不全頁重繪，打勾瞬間秒刪 UI
                 }
             };
 
@@ -1246,8 +1260,8 @@ public class TaskCalendarWindow : Form {
                 chk.Cursor = Cursors.Hand;
                 chk.CheckedChanged += (s, e) => {
                     if(chk.Checked) {
-                        parentApp.DeleteTaskAndRefresh(t.Id);
-                        RefreshData();
+                        parentApp.DeleteCalendarTask(t.Id);
+                        tPanel.Dispose(); // 【優化】不全頁重繪，打勾瞬間秒刪 UI
                     }
                 };
 
