@@ -81,7 +81,7 @@ public class App_Shortcuts : UserControl {
         taskPanel.Resize += (s, e) => {
             int safeWidth = taskPanel.ClientSize.Width - (int)(15 * scale);
             if (safeWidth > 0) {
-                taskPanel.SuspendLayout(); // 【優化】避免縮放卡頓
+                taskPanel.SuspendLayout(); 
                 foreach (Control c in taskPanel.Controls) {
                     if (c is Panel) c.Width = safeWidth;
                 }
@@ -104,13 +104,14 @@ public class App_Shortcuts : UserControl {
             card.Width = startWidth;
             card.AutoSize = true;
             card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
-            card.BackColor = UITheme.CardWhite;
+            card.BackColor = UITheme.BgGray; // 【修改】與背景色融合
             card.Tag = s;
 
             card.Paint += (sender, e) => {
-                UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.CardWhite);
+                // 【修改】保留邊框供辨識，去除白底
+                UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1)) {
+                using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                     e.Graphics.DrawPath(pen, UITheme.CreateRoundedRectanglePath(new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale)));
                 }
             };
@@ -162,7 +163,14 @@ public class App_Shortcuts : UserControl {
                 if (MessageBox.Show("確定移除捷徑？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) {
                     DeleteShortcutDb(s.Id);
                     shortcuts.Remove(s);
-                    RefreshUI();
+                    
+                    // 【修改】記錄滾動位置，移除後復原
+                    Point scrollPos = new Point(Math.Abs(taskPanel.AutoScrollPosition.X), Math.Abs(taskPanel.AutoScrollPosition.Y));
+                    taskPanel.SuspendLayout();
+                    taskPanel.Controls.Remove(card);
+                    card.Dispose();
+                    taskPanel.ResumeLayout(true);
+                    taskPanel.AutoScrollPosition = scrollPos;
                 }
             };
 
@@ -184,7 +192,7 @@ public class App_Shortcuts : UserControl {
             btnEdit.Text = "修";
             btnEdit.Dock = DockStyle.Top;
             btnEdit.Height = (int)(32 * scale);
-            btnEdit.BackColor = UITheme.BgGray;
+            btnEdit.BackColor = UITheme.BgGray; // 【修改】
             btnEdit.ForeColor = UITheme.TextMain;
             btnEdit.FlatStyle = FlatStyle.Flat;
             btnEdit.Cursor = Cursors.Hand;
