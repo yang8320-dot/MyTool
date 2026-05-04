@@ -1406,7 +1406,6 @@ public class AllTasksViewWindow : Form {
         }
     }
 
-    // 【修改】智慧標題比對，容許自訂欄位，並校正單次/特定日期邏輯
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -1746,3 +1745,39 @@ public class AllTasksViewWindow : Form {
                 nb.BackColor = UITheme.AppleBlue;
                 nb.ForeColor = UITheme.CardWhite;
                 nb.Font = UITheme.GetFont(10f, FontStyle.Bold);
+                nb.FlatAppearance.BorderSize = 0;
+
+                nf.Controls.Add(nt);
+                nf.Controls.Add(nb);
+
+                if (nf.ShowDialog() == DialogResult.OK) {
+                    t.Note = nt.Text;
+                    parentControl.UpdateTaskDb(t);
+                    RefreshData();
+                }
+            };
+
+            string typeTag = $"[{t.TaskType}] ";
+            string timeInfo = t.MonthStr == "特定日期" ? $"[{t.DateStr} {t.TimeStr}]" : $"[{t.MonthStr} {t.DateStr} {t.TimeStr}]";
+
+            Label lbl = new Label();
+            lbl.Text = typeTag + timeInfo + " " + t.Name;
+            lbl.Dock = DockStyle.Fill;
+            lbl.TextAlign = ContentAlignment.MiddleLeft;
+            lbl.AutoSize = true;
+            lbl.Font = UITheme.GetFont(10.5f);
+            lbl.ForeColor = UITheme.TextMain;
+            lbl.Padding = new Padding((int)(5 * scale), 0, 0, 0);
+
+            row.Controls.Add(bE, 0, 0);
+            row.Controls.Add(bD, 1, 0);
+            row.Controls.Add(bN, 2, 0);
+            row.Controls.Add(lbl, 3, 0);
+
+            inner.Controls.Add(row);
+        }
+
+        gb.Controls.Add(inner);
+        flow.Controls.Add(gb);
+    }
+}
