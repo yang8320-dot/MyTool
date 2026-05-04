@@ -333,11 +333,10 @@ public class App_TodoList : UserControl {
         card.Width = startWidth;
         card.AutoSize = true;
         card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
-        card.BackColor = UITheme.BgGray; // 【修改】白底改為背景色
+        card.BackColor = UITheme.BgGray; 
         card.Tag = task;
 
         card.Paint += (s, e) => {
-            // 【修改】底色改為背景色，保留邊框
             UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
@@ -378,7 +377,6 @@ public class App_TodoList : UserControl {
                 }
                 taskDataList.Remove(task);
                 
-                // 【修改】防跳轉機制：記錄當前滾動位置，移除後立刻復原
                 Point scrollPos = new Point(Math.Abs(taskContainer.AutoScrollPosition.X), Math.Abs(taskContainer.AutoScrollPosition.Y));
                 taskContainer.SuspendLayout();
                 taskContainer.Controls.Remove(card);
@@ -508,7 +506,7 @@ public class App_TodoList : UserControl {
         btn.Height = (int)(32 * scale);
         btn.FlatStyle = FlatStyle.Flat;
         btn.Cursor = Cursors.Hand;
-        btn.BackColor = UITheme.BgGray; // 按鈕底色也與背景融合
+        btn.BackColor = UITheme.BgGray; 
         btn.Font = UITheme.GetFont(9f, FontStyle.Bold);
         btn.Margin = new Padding((int)(2 * scale));
         btn.FlatAppearance.BorderSize = 0;
@@ -860,6 +858,7 @@ public class TaskCalendarWindow : Form {
         topPanel.BackColor = UITheme.CardWhite;
         topPanel.Padding = new Padding((int)(10 * scale));
         
+        // 【修改】將間距拉開，防止標籤與下拉選單重疊
         Label l1 = new Label();
         l1.Text = "檢視模式：";
         l1.AutoSize = true;
@@ -871,7 +870,8 @@ public class TaskCalendarWindow : Form {
         cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbMode.Items.AddRange(new string[] { "總覽", "待辦", "待規", "行程" });
         cmbMode.Width = (int)(100 * scale);
-        cmbMode.Location = new Point((int)(100 * scale), (int)(15 * scale));
+        // 原本 100 改為 110
+        cmbMode.Location = new Point((int)(110 * scale), (int)(15 * scale));
         cmbMode.Font = UITheme.GetFont(11f);
         
         string mapType = "總覽";
@@ -885,7 +885,8 @@ public class TaskCalendarWindow : Form {
         Label l2 = new Label();
         l2.Text = "年份：";
         l2.AutoSize = true;
-        l2.Location = new Point((int)(220 * scale), (int)(18 * scale));
+        // 原本 220 改為 240
+        l2.Location = new Point((int)(240 * scale), (int)(18 * scale));
         l2.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l2);
 
@@ -897,7 +898,8 @@ public class TaskCalendarWindow : Form {
         }
         cmbYear.Text = curYear.ToString();
         cmbYear.Width = (int)(80 * scale);
-        cmbYear.Location = new Point((int)(270 * scale), (int)(15 * scale));
+        // 原本 270 改為 310
+        cmbYear.Location = new Point((int)(310 * scale), (int)(15 * scale));
         cmbYear.Font = UITheme.GetFont(11f);
         cmbYear.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbYear);
@@ -905,7 +907,8 @@ public class TaskCalendarWindow : Form {
         Label l3 = new Label();
         l3.Text = "月份：";
         l3.AutoSize = true;
-        l3.Location = new Point((int)(370 * scale), (int)(18 * scale));
+        // 原本 370 改為 420
+        l3.Location = new Point((int)(420 * scale), (int)(18 * scale));
         l3.Font = UITheme.GetFont(11f, FontStyle.Bold);
         topPanel.Controls.Add(l3);
 
@@ -915,8 +918,10 @@ public class TaskCalendarWindow : Form {
             cmbMonth.Items.Add(m.ToString("D2"));
         }
         cmbMonth.Text = DateTime.Now.Month.ToString("D2");
-        cmbMonth.Width = (int)(60 * scale);
-        cmbMonth.Location = new Point((int)(420 * scale), (int)(15 * scale));
+        // 寬度 60 改為 70 防止字體被切
+        cmbMonth.Width = (int)(70 * scale);
+        // 原本 420 改為 490
+        cmbMonth.Location = new Point((int)(490 * scale), (int)(15 * scale));
         cmbMonth.Font = UITheme.GetFont(11f);
         cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMonth);
@@ -925,7 +930,8 @@ public class TaskCalendarWindow : Form {
         btnToday.Text = "回到本月";
         btnToday.Width = (int)(100 * scale);
         btnToday.Height = (int)(32 * scale);
-        btnToday.Location = new Point((int)(500 * scale), (int)(13 * scale));
+        // 原本 500 改為 590
+        btnToday.Location = new Point((int)(590 * scale), (int)(13 * scale));
         btnToday.BackColor = UITheme.AppleBlue;
         btnToday.ForeColor = UITheme.CardWhite;
         btnToday.FlatStyle = FlatStyle.Flat;
