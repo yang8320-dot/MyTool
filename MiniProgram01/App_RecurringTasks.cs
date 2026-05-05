@@ -522,14 +522,19 @@ public class App_RecurringTasks : UserControl {
         }
     }
 
-    // 【修改】防呆機制：新任務如果算出的時間小於今天(代表過去的時間)，自動推延至下一週期
+    // 【修改】防呆機制修正：避免無限迴圈新增排程
     private bool TryGetNextTriggerTime(RecurringTask t, DateTime now, out DateTime target) {
         target = now;
         try {
             string[] timeParts = t.TimeStr.Split(':');
             int h = int.Parse(timeParts[0]); 
             int m = int.Parse(timeParts[1]);
-            bool isNew = string.IsNullOrEmpty(t.LastTriggeredDate);
+
+            DateTime lastDt = DateTime.MinValue;
+            if (!string.IsNullOrEmpty(t.LastTriggeredDate)) {
+                DateTime.TryParseExact(t.LastTriggeredDate, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out lastDt);
+            }
+            bool isNew = (lastDt == DateTime.MinValue);
 
             if (t.MonthStr == "特定日期") {
                 if (DateTime.TryParseExact(t.DateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime specificDate)) {
@@ -539,50 +544,66 @@ public class App_RecurringTasks : UserControl {
                 return false;
             }
 
+            // 1. 建立初始基準日
             if (t.MonthStr == "每天") {
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
-                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd")) {
-                    target = target.AddDays(1);
-                }
-                return true;
             }
-            
-            if (t.MonthStr == "每週") {
+            else if (t.MonthStr == "每週") {
                 Dictionary<string, DayOfWeek> dow = new Dictionary<string, DayOfWeek> {
                     {"一", DayOfWeek.Monday}, {"二", DayOfWeek.Tuesday}, {"三", DayOfWeek.Wednesday},
                     {"四", DayOfWeek.Thursday}, {"五", DayOfWeek.Friday}, {"六", DayOfWeek.Saturday}, {"日", DayOfWeek.Sunday}
                 };
                 if (!dow.ContainsKey(t.DateStr)) return false;
-                
                 int diff = dow[t.DateStr] - now.DayOfWeek;
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0).AddDays(diff);
-                
-                // 【修正防呆】：若是新任務且日期已經過了，推遲到下週
-                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd") || (isNew && target.Date < now.Date)) {
-                    target = target.AddDays(7);
-                }
-                return true;
             }
-            
-            if (t.MonthStr == "每月" || t.MonthStr.EndsWith("月")) {
+            else if (t.MonthStr == "每月" || t.MonthStr.EndsWith("月")) {
                 int month = t.MonthStr == "每月" ? now.Month : int.Parse(t.MonthStr.Replace("月",""));
                 int day = (t.DateStr == "月底") ? DateTime.DaysInMonth(now.Year, month) : int.Parse(t.DateStr);
                 int validDay = Math.Min(day, DateTime.DaysInMonth(now.Year, month));
-                
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
-                
-                // 【修正防呆】：若是新任務且日期已經過了，自動推遲到下一週期
-                if (t.LastTriggeredDate == target.ToString("yyyy-MM-dd") || (isNew && target.Date < now.Date)) {
-                    if (t.MonthStr == "每月") {
-                        target = target.AddMonths(1);
-                        validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, target.Month));
-                        target = new DateTime(target.Year, target.Month, validDay, h, m, 0);
-                    } else {
-                        target = target.AddYears(1); 
-                    }
-                }
-                return true;
             }
+
+            // 2. 防呆迴圈：如果推算出的目標日小於等於「上次已觸發之日期」，代表此週期已執行過，強制將目標日往未來推一個週期
+            for (int i = 0; i < 1000; i++) { // 保護限制，避免死迴圈
+                bool needsAdvance = false;
+                
+                // 已經觸發過這個(或更未來)的日期，往下個週期推
+                if (!isNew && target.Date <= lastDt.Date) {
+                    needsAdvance = true;
+                }
+                // 全新的任務，但它的初始基準日在過去，且不是今天，也要往未來推
+                if (isNew && target.Date < now.Date) {
+                    needsAdvance = true;
+                }
+
+                if (!needsAdvance) {
+                    break;
+                }
+                
+                // 依據週期往未來加
+                if (t.MonthStr == "每天") {
+                    target = target.AddDays(1);
+                }
+                else if (t.MonthStr == "每週") {
+                    target = target.AddDays(7);
+                }
+                else if (t.MonthStr == "每月") {
+                    target = target.AddMonths(1);
+                    int day = (t.DateStr == "月底") ? DateTime.DaysInMonth(target.Year, target.Month) : int.Parse(t.DateStr);
+                    int validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, target.Month));
+                    target = new DateTime(target.Year, target.Month, validDay, h, m, 0);
+                }
+                else {
+                    target = target.AddYears(1);
+                    int month = int.Parse(t.MonthStr.Replace("月",""));
+                    int day = (t.DateStr == "月底") ? DateTime.DaysInMonth(target.Year, month) : int.Parse(t.DateStr);
+                    int validDay = Math.Min(day, DateTime.DaysInMonth(target.Year, month));
+                    target = new DateTime(target.Year, month, validDay, h, m, 0);
+                }
+            }
+
+            return true;
         } catch { } 
         return false;
     }
