@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Linq;
 using Microsoft.Data.Sqlite;
+using ClosedXML.Excel; // 【新增】引入 Excel 處理套件
 
 public class App_FileWatcher : UserControl {
     private MainForm parentForm;
@@ -35,10 +36,12 @@ public class App_FileWatcher : UserControl {
         TableLayoutPanel header = new TableLayoutPanel();
         header.Dock = DockStyle.Top;
         header.Height = (int)(50 * scale);
-        header.ColumnCount = 3;
+        header.ColumnCount = 5;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(100 * scale))); 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(100 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 匯入設定
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 匯出設定
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 一鍵清除
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 設定參數
 
         Label lblTitle = new Label();
         lblTitle.Text = "異動紀錄清單";
@@ -48,6 +51,30 @@ public class App_FileWatcher : UserControl {
         lblTitle.TextAlign = ContentAlignment.MiddleLeft;
         lblTitle.Padding = new Padding((int)(10 * scale),0,0,0);
         
+        Button btnImport = new Button();
+        btnImport.Text = "匯入設定";
+        btnImport.Dock = DockStyle.Fill;
+        btnImport.FlatStyle = FlatStyle.Flat;
+        btnImport.Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(2 * scale),(int)(8 * scale));
+        btnImport.Cursor = Cursors.Hand;
+        btnImport.BackColor = UITheme.AppleBlue;
+        btnImport.ForeColor = UITheme.CardWhite;
+        btnImport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnImport.FlatAppearance.BorderSize = 0;
+        btnImport.Click += (s, e) => ExecuteImportExcel();
+
+        Button btnExport = new Button();
+        btnExport.Text = "匯出設定";
+        btnExport.Dock = DockStyle.Fill;
+        btnExport.FlatStyle = FlatStyle.Flat;
+        btnExport.Margin = new Padding((int)(2 * scale),(int)(8 * scale),(int)(2 * scale),(int)(8 * scale));
+        btnExport.Cursor = Cursors.Hand;
+        btnExport.BackColor = UITheme.AppleGreen;
+        btnExport.ForeColor = UITheme.CardWhite;
+        btnExport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnExport.FlatAppearance.BorderSize = 0;
+        btnExport.Click += (s, e) => ExecuteExportExcel();
+
         Button btnClear = new Button();
         btnClear.Text = "一鍵清除";
         btnClear.Dock = DockStyle.Fill;
@@ -72,8 +99,10 @@ public class App_FileWatcher : UserControl {
         btnGoSet.Click += (s, e) => { new MonitorSettingsWindow(this).Show(); };
 
         header.Controls.Add(lblTitle, 0, 0);
-        header.Controls.Add(btnClear, 1, 0);
-        header.Controls.Add(btnGoSet, 2, 0);
+        header.Controls.Add(btnImport, 1, 0);
+        header.Controls.Add(btnExport, 2, 0);
+        header.Controls.Add(btnClear, 3, 0);
+        header.Controls.Add(btnGoSet, 4, 0);
         this.Controls.Add(header);
 
         // --- 提示卡片容器 ---
@@ -369,11 +398,10 @@ public class App_FileWatcher : UserControl {
                         c.Name = cardUniqueName;
                         c.Width = (int)(340 * scale);
                         c.AutoSize = true;
-                        c.BackColor = UITheme.BgGray; // 【修改】白底改為與背景融合
+                        c.BackColor = UITheme.BgGray; 
                         c.Margin = new Padding((int)(5 * scale), (int)(5 * scale), (int)(5 * scale), (int)(3 * scale));
                         
                         c.Paint += (s, ev) => {
-                            // 【修改】保留圓角與淡色邊框
                             UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, c.Width - 1, c.Height - 1), (int)(8 * scale), UITheme.BgGray);
                             using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                                 ev.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -474,6 +502,112 @@ public class App_FileWatcher : UserControl {
                             } catch { }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // 【新增】匯出設定邏輯
+    private void ExecuteExportExcel() {
+        using (SaveFileDialog sfd = new SaveFileDialog()) {
+            sfd.Filter = "Excel 活頁簿|*.xlsx";
+            sfd.FileName = $"監控任務設定_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook()) {
+                        var sheet = workbook.Worksheets.Add("監控設定");
+                        string[] headers = {"來源路徑", "備份路徑", "通知方式", "延遲執行", "監控深度", "同步模式", "自動刪除", "自訂名稱"};
+                        for (int i = 0; i < headers.Length; i++) {
+                            sheet.Cell(1, i + 1).Value = headers[i];
+                        }
+                        var headerRange = sheet.Range(1, 1, 1, headers.Length);
+                        headerRange.Style.Font.Bold = true; 
+                        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+                        int row = 2;
+                        foreach (var val in pathPairs.Values) {
+                            sheet.Cell(row, 1).Value = val[0];
+                            sheet.Cell(row, 2).Value = val[1];
+                            sheet.Cell(row, 3).Value = val[2];
+                            sheet.Cell(row, 4).Value = val[3];
+                            sheet.Cell(row, 5).Value = val[4];
+                            sheet.Cell(row, 6).Value = val[5];
+                            sheet.Cell(row, 7).Value = val[6];
+                            sheet.Cell(row, 8).Value = val[7];
+                            row++;
+                        }
+                        sheet.Columns().AdjustToContents();
+                        workbook.SaveAs(sfd.FileName);
+                        MessageBox.Show("監控設定匯出成功！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("匯出時發生錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
+    // 【新增】匯入設定邏輯
+    private void ExecuteImportExcel() {
+        using (OpenFileDialog ofd = new OpenFileDialog()) {
+            ofd.Filter = "Excel 活頁簿|*.xlsx";
+            ofd.Title = "選擇要匯入的監控設定檔";
+            if (ofd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook(ofd.FileName)) {
+                        var sheet = workbook.Worksheets.First();
+                        var headerRow = sheet.Row(1);
+                        Dictionary<string, int> colMap = new Dictionary<string, int>();
+                        foreach (var cell in headerRow.CellsUsed()) {
+                            colMap[cell.GetString().Trim()] = cell.Address.ColumnNumber;
+                        }
+
+                        if (!colMap.ContainsKey("來源路徑") || !colMap.ContainsKey("備份路徑")) {
+                            MessageBox.Show("找不到必要的標題欄位！請確認包含『來源路徑』與『備份路徑』", "格式錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+
+                        int count = 0;
+                        using (var conn = DbHelper.GetConnection()) {
+                            conn.Open();
+                            using (var trans = conn.BeginTransaction()) {
+                                foreach (var r in sheet.RangeUsed().RowsUsed().Skip(1)) {
+                                    string src = r.Cell(colMap["來源路徑"]).GetString().Trim();
+                                    if (string.IsNullOrEmpty(src)) continue;
+                                    
+                                    string dst = r.Cell(colMap["備份路徑"]).GetString().Trim();
+                                    string method = colMap.ContainsKey("通知方式") ? r.Cell(colMap["通知方式"]).GetString().Trim() : "顯示在監控";
+                                    string freq = colMap.ContainsKey("延遲執行") ? r.Cell(colMap["延遲執行"]).GetString().Trim() : "0秒";
+                                    string depth = colMap.ContainsKey("監控深度") ? r.Cell(colMap["監控深度"]).GetString().Trim() : "無限層";
+                                    string sync = colMap.ContainsKey("同步模式") ? r.Cell(colMap["同步模式"]).GetString().Trim() : "單向備份";
+                                    string ret = colMap.ContainsKey("自動刪除") ? r.Cell(colMap["自動刪除"]).GetString().Trim() : "永久";
+                                    string cust = colMap.ContainsKey("自訂名稱") ? r.Cell(colMap["自訂名稱"]).GetString().Trim() : "";
+
+                                    string sql = @"INSERT INTO FileWatchers (SourcePath, DestPath, Method, Frequency, Depth, SyncMode, Retention, CustomName) 
+                                                   VALUES (@S, @D, @M, @F, @Dp, @Sy, @R, @C) 
+                                                   ON CONFLICT(SourcePath) DO UPDATE SET 
+                                                   DestPath=@D, Method=@M, Frequency=@F, Depth=@Dp, SyncMode=@Sy, Retention=@R, CustomName=@C";
+                                    using (var cmd = new SqliteCommand(sql, conn, trans)) {
+                                        cmd.Parameters.AddWithValue("@S", src); 
+                                        cmd.Parameters.AddWithValue("@D", dst);
+                                        cmd.Parameters.AddWithValue("@M", method); 
+                                        cmd.Parameters.AddWithValue("@F", freq);
+                                        cmd.Parameters.AddWithValue("@Dp", depth); 
+                                        cmd.Parameters.AddWithValue("@Sy", sync);
+                                        cmd.Parameters.AddWithValue("@R", ret); 
+                                        cmd.Parameters.AddWithValue("@C", cust);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                    count++;
+                                }
+                                trans.Commit();
+                            }
+                        }
+                        LoadConfigFromDb(); // 重新讀取設定並重啟監控
+                        MessageBox.Show($"匯入完成！\n共處理或更新了 {count} 筆監控設定。", "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("匯入失敗：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -736,13 +870,12 @@ public class MonitorListWindow : Form {
             Panel card = new Panel();
             card.AutoSize = true;
             card.MinimumSize = new Size(0, (int)(70 * scale));
-            card.BackColor = UITheme.BgGray; // 【修改】與背景色融合
+            card.BackColor = UITheme.BgGray; 
             card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
             card.Padding = new Padding((int)(12 * scale));
             card.Width = flow.ClientSize.Width > (int)(30 * scale) ? flow.ClientSize.Width - (int)(30 * scale) : (int)(400 * scale);
             
             card.Paint += (s, ev) => {
-                // 【修改】保留圓角與淡色邊框
                 UITheme.DrawRoundedBackground(ev.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(10 * scale), UITheme.BgGray);
                 using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
                     ev.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
