@@ -11,7 +11,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Data.Sqlite;
 using System.Globalization; 
-using ClosedXML.Excel; // 【新增】引入 Excel 匯出套件
+using ClosedXML.Excel; 
 
 public class App_TodoList : UserControl {
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
@@ -36,7 +36,7 @@ public class App_TodoList : UserControl {
     private List<TaskInfo> taskDataList = new List<TaskInfo>();
     private int dragInsertIndex = -1; 
     private MainForm mainForm;
-    private float scale;
+    public float scale; // 開放給 EditForm 使用
 
     private readonly string[] colorCycle = { "Black", "Red", "DodgerBlue", "MediumOrchid", "DarkGreen", "DarkOrange" };
 
@@ -95,6 +95,12 @@ public class App_TodoList : UserControl {
         chkDate.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         chkDate.Cursor = Cursors.Hand;
 
+        // 【新增】如果是「行程」，強制勾選並鎖定
+        if (this.listType == "schedule") {
+            chkDate.Checked = true;
+            chkDate.Enabled = false; // 反灰，不讓使用者取消
+        }
+
         Button btnAdd = new Button();
         btnAdd.Text = "新增";
         btnAdd.Dock = DockStyle.Fill;
@@ -129,36 +135,49 @@ public class App_TodoList : UserControl {
             calWin.Show();
         };
 
-        Button btnPrint = new Button();
-        btnPrint.Text = "導出PDF";
-        btnPrint.Width = (int)(90 * scale);
-        btnPrint.Height = (int)(32 * scale);
-        btnPrint.FlatStyle = FlatStyle.Flat;
-        btnPrint.BackColor = UITheme.AppleGreen;
-        btnPrint.ForeColor = UITheme.CardWhite;
-        btnPrint.Font = UITheme.GetFont(10f, FontStyle.Bold);
-        btnPrint.Margin = new Padding(0, 0, (int)(10 * scale), 0);
-        btnPrint.Cursor = Cursors.Hand;
-        btnPrint.FlatAppearance.BorderSize = 0;
-        btnPrint.Click += (s, e) => ExecuteExportPDF();
+        Button btnImportExcel = new Button();
+        btnImportExcel.Text = "匯入Excel";
+        btnImportExcel.Width = (int)(100 * scale);
+        btnImportExcel.Height = (int)(32 * scale);
+        btnImportExcel.FlatStyle = FlatStyle.Flat;
+        btnImportExcel.BackColor = UITheme.AppleBlue;
+        btnImportExcel.ForeColor = UITheme.CardWhite;
+        btnImportExcel.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnImportExcel.Margin = new Padding(0, 0, (int)(10 * scale), 0);
+        btnImportExcel.Cursor = Cursors.Hand;
+        btnImportExcel.FlatAppearance.BorderSize = 0;
+        btnImportExcel.Click += (s, e) => ExecuteImportExcel();
 
-        // 【新增】匯出 Excel 按鈕
         Button btnExportExcel = new Button();
         btnExportExcel.Text = "匯出Excel";
         btnExportExcel.Width = (int)(100 * scale);
         btnExportExcel.Height = (int)(32 * scale);
         btnExportExcel.FlatStyle = FlatStyle.Flat;
-        btnExportExcel.BackColor = UITheme.AppleBlue;
+        btnExportExcel.BackColor = UITheme.AppleGreen;
         btnExportExcel.ForeColor = UITheme.CardWhite;
         btnExportExcel.Font = UITheme.GetFont(10f, FontStyle.Bold);
-        btnExportExcel.Margin = new Padding(0);
+        btnExportExcel.Margin = new Padding(0, 0, (int)(10 * scale), 0);
         btnExportExcel.Cursor = Cursors.Hand;
         btnExportExcel.FlatAppearance.BorderSize = 0;
         btnExportExcel.Click += (s, e) => ExecuteExportExcel();
 
+        Button btnPrint = new Button();
+        btnPrint.Text = "導出PDF";
+        btnPrint.Width = (int)(90 * scale);
+        btnPrint.Height = (int)(32 * scale);
+        btnPrint.FlatStyle = FlatStyle.Flat;
+        btnPrint.BackColor = Color.Gray;
+        btnPrint.ForeColor = UITheme.CardWhite;
+        btnPrint.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnPrint.Margin = new Padding(0);
+        btnPrint.Cursor = Cursors.Hand;
+        btnPrint.FlatAppearance.BorderSize = 0;
+        btnPrint.Click += (s, e) => ExecuteExportPDF();
+
         row2Panel.Controls.Add(btnCalendar);
+        row2Panel.Controls.Add(btnImportExcel);
+        row2Panel.Controls.Add(btnExportExcel); 
         row2Panel.Controls.Add(btnPrint);
-        row2Panel.Controls.Add(btnExportExcel); // 加入 FlowLayoutPanel
 
         topBar.Controls.Add(lblTitle, 0, 0);
         topBar.Controls.Add(inputField, 1, 0);
@@ -231,7 +250,10 @@ public class App_TodoList : UserControl {
 
         AddTask(text, "Black", "手動", "", dueDateStr, noteAddon);
         inputField.Text = "";
-        chkDate.Checked = false;
+        // 只有非 schedule 才取消打勾
+        if (this.listType != "schedule") {
+            chkDate.Checked = false;
+        }
     }
 
     public void AddTask(string text, string colorName = "Black", string source = "手動", string note = "", string dueDateStr = "", string noteAddon = "") {
@@ -482,12 +504,9 @@ public class App_TodoList : UserControl {
 
         Button btnEdit = CreateCardButton("修");
         Action triggerEdit = () => {
-            string newText = ShowLargeEditBox(task.Text); 
-            if (!string.IsNullOrEmpty(newText) && newText != task.Text) {
-                task.Text = newText; 
-                lbl.Text = string.IsNullOrEmpty(task.DueDate) ? newText : $"[期] {newText}"; 
-                UpdateTaskInDb(task);
-            }
+            // 【修改】改成彈出全新的綜合編輯視窗
+            ListTaskEditForm editF = new ListTaskEditForm(task, this);
+            editF.ShowDialog();
         };
         lbl.MouseDoubleClick += (s, e) => triggerEdit();
         btnEdit.Click += (s, e) => triggerEdit();
@@ -529,7 +548,7 @@ public class App_TodoList : UserControl {
         return btn;
     }
 
-    private void UpdateTaskInDb(TaskInfo task) {
+    public void UpdateTaskInDb(TaskInfo task) {
         using (var conn = DbHelper.GetConnection()) {
             conn.Open();
             string sql = "UPDATE Tasks SET Text=@Text, Color=@Color, Note=@Note, OrderIndex=@Order, DueDate=@Due WHERE Id=@Id";
@@ -595,7 +614,71 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // 【新增】執行匯出 Excel 邏輯
+    // 【新增】匯入 Excel 邏輯 (支援標題欄位精準比對)
+    private void ExecuteImportExcel() {
+        using (OpenFileDialog ofd = new OpenFileDialog()) {
+            ofd.Filter = "Excel 活頁簿|*.xlsx";
+            ofd.Title = "選擇要匯入的檔案";
+            if (ofd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook(ofd.FileName)) {
+                        var sheet = workbook.Worksheets.First();
+                        var headerRow = sheet.Row(1);
+                        
+                        Dictionary<string, int> colMap = new Dictionary<string, int>();
+                        foreach (var cell in headerRow.CellsUsed()) {
+                            string hText = cell.GetString().Trim();
+                            if (!string.IsNullOrEmpty(hText)) {
+                                colMap[hText] = cell.Address.ColumnNumber;
+                            }
+                        }
+
+                        if (!colMap.ContainsKey("項目")) {
+                            MessageBox.Show("匯入失敗：找不到『項目』標題欄位！", "格式錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+
+                        var rows = sheet.RangeUsed().RowsUsed().Skip(1);
+                        int count = 0;
+
+                        foreach (var r in rows) {
+                            string text = r.Cell(colMap["項目"]).GetString().Trim();
+                            if (string.IsNullOrWhiteSpace(text)) continue;
+
+                            string due = "";
+                            if (colMap.ContainsKey("期程")) {
+                                var dueCell = r.Cell(colMap["期程"]);
+                                if (dueCell.TryGetValue(out DateTime dtValue)) {
+                                    due = dtValue.ToString("yyyy-MM-dd HH:mm");
+                                } else {
+                                    string strVal = dueCell.GetString().Trim().TrimStart('\'');
+                                    if (DateTime.TryParse(strVal, out DateTime dtStr)) {
+                                        due = dtStr.ToString("yyyy-MM-dd HH:mm");
+                                    } else {
+                                        due = strVal; 
+                                    }
+                                }
+                            }
+
+                            string color = colMap.ContainsKey("顏色標籤") ? r.Cell(colMap["顏色標籤"]).GetString().Trim() : "Black";
+                            if (string.IsNullOrEmpty(color)) color = "Black";
+
+                            string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
+
+                            AddTask(text, color, "Excel匯入", note, due, "");
+                            count++;
+                        }
+
+                        MessageBox.Show($"Excel 匯入完成！\n\n成功新增了 {count} 筆任務", "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        LoadTasksFromDb(); // 重新整理畫面
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("檔案格式有誤或被其他程式鎖定。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
     private void ExecuteExportExcel() {
         using (SaveFileDialog sfd = new SaveFileDialog()) {
             sfd.Filter = "Excel 活頁簿|*.xlsx";
@@ -606,19 +689,16 @@ public class App_TodoList : UserControl {
                     using (var workbook = new XLWorkbook()) {
                         var sheet = workbook.Worksheets.Add(titleName);
 
-                        // 寫入標題
                         sheet.Cell(1, 1).Value = "項目";
                         sheet.Cell(1, 2).Value = "期程";
                         sheet.Cell(1, 3).Value = "顏色標籤";
                         sheet.Cell(1, 4).Value = "建立時間";
                         sheet.Cell(1, 5).Value = "備註";
 
-                        // 設定標題樣式
                         var headerRange = sheet.Range("A1:E1");
                         headerRange.Style.Font.Bold = true;
                         headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
-                        // 寫入資料
                         int row = 2;
                         foreach (var t in taskDataList) {
                             sheet.Cell(row, 1).Value = t.Text;
@@ -629,17 +709,14 @@ public class App_TodoList : UserControl {
                             row++;
                         }
 
-                        // 設定欄寬
-                        sheet.Column(1).Width = 40; // 項目
-                        sheet.Column(2).Width = 15; // 期程
-                        sheet.Column(3).Width = 15; // 顏色標籤
-                        sheet.Column(4).Width = 15; // 建立時間
-                        sheet.Column(5).Width = 40; // 備註
+                        sheet.Column(1).Width = 40; 
+                        sheet.Column(2).Width = 15; 
+                        sheet.Column(3).Width = 15; 
+                        sheet.Column(4).Width = 15; 
+                        sheet.Column(5).Width = 40; 
 
-                        // 設定列高統一為 25
                         sheet.Rows().Height = 25;
 
-                        // 允許項目與備註欄位自動換行
                         sheet.Column(1).Style.Alignment.WrapText = true;
                         sheet.Column(5).Style.Alignment.WrapText = true;
 
@@ -727,63 +804,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    private string ShowLargeEditBox(string defaultValue) {
-        Form form = new Form();
-        form.Width = (int)(450 * scale);
-        form.Height = (int)(280 * scale);
-        form.Text = "修正任務內容";
-        form.StartPosition = FormStartPosition.CenterScreen;
-        form.FormBorderStyle = FormBorderStyle.FixedDialog;
-        form.MaximizeBox = false;
-        form.MinimizeBox = false;
-        form.TopMost = true; 
-        form.BackColor = UITheme.BgGray;
-
-        Label lbl = new Label();
-        lbl.Text = "請輸入修正後的內容：";
-        lbl.Left = (int)(15 * scale);
-        lbl.Top = (int)(15 * scale);
-        lbl.AutoSize = true;
-        lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
-        
-        TextBox txt = new TextBox();
-        txt.Left = (int)(15 * scale);
-        txt.Top = (int)(45 * scale);
-        txt.Width = (int)(405 * scale);
-        txt.Height = (int)(120 * scale);
-        txt.Multiline = true;
-        txt.AcceptsReturn = true;
-        txt.ScrollBars = ScrollBars.Vertical;
-        txt.Font = UITheme.GetFont(11f);
-        txt.Text = defaultValue;
-        
-        Button btnOk = new Button();
-        btnOk.Text = "確認修改";
-        btnOk.Left = (int)(300 * scale);
-        btnOk.Top = (int)(180 * scale);
-        btnOk.Width = (int)(120 * scale);
-        btnOk.Height = (int)(40 * scale);
-        btnOk.DialogResult = DialogResult.OK;
-        btnOk.FlatStyle = FlatStyle.Flat;
-        btnOk.BackColor = UITheme.AppleBlue;
-        btnOk.ForeColor = UITheme.CardWhite;
-        btnOk.Font = UITheme.GetFont(10f, FontStyle.Bold);
-        btnOk.Cursor = Cursors.Hand;
-        btnOk.FlatAppearance.BorderSize = 0;
-
-        form.Controls.Add(lbl);
-        form.Controls.Add(txt);
-        form.Controls.Add(btnOk);
-        
-        form.AcceptButton = btnOk;
-        txt.SelectionStart = txt.Text.Length; 
-        
-        if (form.ShowDialog() == DialogResult.OK) {
-            return txt.Text.Trim();
-        }
-        return "";
-    }
-
     private string ShowNoteEditBox(string taskName, string currentNote) {
         Form form = new Form();
         form.Width = (int)(420 * scale);
@@ -841,6 +861,124 @@ public class App_TodoList : UserControl {
             return txt.Text.Trim();
         }
         return null;
+    }
+}
+
+// ============================================================
+// 【新增】清單專用的完整編輯視窗 (結合名稱、備註、期程設定)
+// ============================================================
+public class ListTaskEditForm : Form {
+    private App_TodoList.TaskInfo task;
+    private App_TodoList parent;
+    private float scale;
+
+    public ListTaskEditForm(App_TodoList.TaskInfo t, App_TodoList p) {
+        this.task = t;
+        this.parent = p;
+        this.scale = p.scale;
+
+        this.Text = "編輯任務內容";
+        this.Width = (int)(450 * scale);
+        this.Height = (int)(480 * scale);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.MaximizeBox = false;
+        this.TopMost = true; 
+        this.BackColor = UITheme.BgGray;
+
+        FlowLayoutPanel f = new FlowLayoutPanel();
+        f.Dock = DockStyle.Fill;
+        f.FlowDirection = FlowDirection.TopDown;
+        f.Padding = new Padding((int)(20 * scale));
+
+        Label l1 = new Label();
+        l1.Text = "任務名稱：";
+        l1.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        f.Controls.Add(l1);
+
+        TextBox txtName = new TextBox();
+        string cleanName = t.Text.Replace("[待辦] ", "").Replace("[待規] ", "").Replace("[行程] ", "");
+        txtName.Text = cleanName;
+        txtName.Width = (int)(390 * scale);
+        txtName.Font = UITheme.GetFont(11f);
+        f.Controls.Add(txtName);
+
+        Label l2 = new Label();
+        l2.Text = "備註說明：";
+        l2.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        l2.Margin = new Padding(0, (int)(15 * scale), 0, 0);
+        f.Controls.Add(l2);
+
+        TextBox txtNote = new TextBox();
+        txtNote.Text = t.Note;
+        txtNote.Width = (int)(390 * scale);
+        txtNote.Height = (int)(120 * scale);
+        txtNote.Multiline = true;
+        txtNote.ScrollBars = ScrollBars.Vertical;
+        txtNote.Font = UITheme.GetFont(10.5f);
+        f.Controls.Add(txtNote);
+
+        Label l3 = new Label();
+        l3.Text = "設定期程 (空白代表未排定)：";
+        l3.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+        l3.Margin = new Padding(0, (int)(15 * scale), 0, 0);
+        f.Controls.Add(l3);
+
+        FlowLayoutPanel dateRow = new FlowLayoutPanel();
+        dateRow.Width = (int)(400 * scale);
+        dateRow.Height = (int)(40 * scale);
+        dateRow.Margin = new Padding(0);
+
+        TextBox txtDate = new TextBox();
+        txtDate.Text = t.DueDate;
+        txtDate.Width = (int)(270 * scale);
+        txtDate.Font = UITheme.GetFont(11f);
+        txtDate.Margin = new Padding(0, (int)(3 * scale), (int)(10 * scale), 0);
+        
+        Button btnSetDate = new Button();
+        btnSetDate.Text = "選擇期程";
+        btnSetDate.Width = (int)(100 * scale);
+        btnSetDate.Height = (int)(32 * scale);
+        btnSetDate.BackColor = UITheme.CardWhite;
+        btnSetDate.FlatStyle = FlatStyle.Flat;
+        btnSetDate.Font = UITheme.GetFont(9.5f, FontStyle.Bold);
+        btnSetDate.Cursor = Cursors.Hand;
+        btnSetDate.FlatAppearance.BorderColor = Color.LightGray;
+
+        btnSetDate.Click += (s, e) => {
+            DateTimePickerDialog dialog = new DateTimePickerDialog(scale);
+            if (dialog.ShowDialog() == DialogResult.OK) {
+                txtDate.Text = dialog.SelectedDateTime.ToString("yyyy-MM-dd HH:mm");
+            }
+        };
+
+        dateRow.Controls.Add(txtDate);
+        dateRow.Controls.Add(btnSetDate);
+        f.Controls.Add(dateRow);
+
+        Button btnOk = new Button();
+        btnOk.Text = "儲存修改";
+        btnOk.Width = (int)(390 * scale);
+        btnOk.Height = (int)(45 * scale);
+        btnOk.BackColor = UITheme.AppleBlue;
+        btnOk.ForeColor = UITheme.CardWhite;
+        btnOk.FlatStyle = FlatStyle.Flat;
+        btnOk.Font = UITheme.GetFont(11f, FontStyle.Bold);
+        btnOk.Margin = new Padding(0, (int)(20 * scale), 0, 0);
+        btnOk.FlatAppearance.BorderSize = 0;
+        
+        btnOk.Click += (s, e) => {
+            task.Text = txtName.Text.Trim();
+            task.Note = txtNote.Text.Trim();
+            task.DueDate = txtDate.Text.Trim();
+            
+            parent.UpdateTaskInDb(task);
+            parent.LoadTasksFromDb(); // 重新整理父視窗
+            this.Close();
+        };
+
+        f.Controls.Add(btnOk);
+        this.Controls.Add(f);
     }
 }
 
@@ -902,6 +1040,9 @@ public class DateTimePickerDialog : Form {
         btnOk.Click += (s, e) => {
             SelectedDateTime = new DateTime(dpDate.Value.Year, dpDate.Value.Month, dpDate.Value.Day, dpTime.Value.Hour, dpTime.Value.Minute, 0);
         };
+
+        // 【新增】將這個按鈕設為 Form 的 AcceptButton，支援 Enter 鍵觸發
+        this.AcceptButton = btnOk;
 
         this.Controls.Add(l1);
         this.Controls.Add(dpDate);
