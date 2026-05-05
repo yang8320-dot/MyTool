@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Data.Sqlite;
 using System.Globalization; 
+using ClosedXML.Excel; // 【新增】引入 Excel 匯出套件
 
 public class App_TodoList : UserControl {
     public Dictionary<string, App_TodoList> TargetLists = new Dictionary<string, App_TodoList>();
@@ -136,13 +137,28 @@ public class App_TodoList : UserControl {
         btnPrint.BackColor = UITheme.AppleGreen;
         btnPrint.ForeColor = UITheme.CardWhite;
         btnPrint.Font = UITheme.GetFont(10f, FontStyle.Bold);
-        btnPrint.Margin = new Padding(0);
+        btnPrint.Margin = new Padding(0, 0, (int)(10 * scale), 0);
         btnPrint.Cursor = Cursors.Hand;
         btnPrint.FlatAppearance.BorderSize = 0;
         btnPrint.Click += (s, e) => ExecuteExportPDF();
 
+        // 【新增】匯出 Excel 按鈕
+        Button btnExportExcel = new Button();
+        btnExportExcel.Text = "匯出Excel";
+        btnExportExcel.Width = (int)(100 * scale);
+        btnExportExcel.Height = (int)(32 * scale);
+        btnExportExcel.FlatStyle = FlatStyle.Flat;
+        btnExportExcel.BackColor = UITheme.AppleBlue;
+        btnExportExcel.ForeColor = UITheme.CardWhite;
+        btnExportExcel.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnExportExcel.Margin = new Padding(0);
+        btnExportExcel.Cursor = Cursors.Hand;
+        btnExportExcel.FlatAppearance.BorderSize = 0;
+        btnExportExcel.Click += (s, e) => ExecuteExportExcel();
+
         row2Panel.Controls.Add(btnCalendar);
         row2Panel.Controls.Add(btnPrint);
+        row2Panel.Controls.Add(btnExportExcel); // 加入 FlowLayoutPanel
 
         topBar.Controls.Add(lblTitle, 0, 0);
         topBar.Controls.Add(inputField, 1, 0);
@@ -579,6 +595,64 @@ public class App_TodoList : UserControl {
         }
     }
 
+    // 【新增】執行匯出 Excel 邏輯
+    private void ExecuteExportExcel() {
+        using (SaveFileDialog sfd = new SaveFileDialog()) {
+            sfd.Filter = "Excel 活頁簿|*.xlsx";
+            sfd.FileName = $"{titleName}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook()) {
+                        var sheet = workbook.Worksheets.Add(titleName);
+
+                        // 寫入標題
+                        sheet.Cell(1, 1).Value = "項目";
+                        sheet.Cell(1, 2).Value = "期程";
+                        sheet.Cell(1, 3).Value = "顏色標籤";
+                        sheet.Cell(1, 4).Value = "建立時間";
+                        sheet.Cell(1, 5).Value = "備註";
+
+                        // 設定標題樣式
+                        var headerRange = sheet.Range("A1:E1");
+                        headerRange.Style.Font.Bold = true;
+                        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+                        // 寫入資料
+                        int row = 2;
+                        foreach (var t in taskDataList) {
+                            sheet.Cell(row, 1).Value = t.Text;
+                            sheet.Cell(row, 2).SetValue("'" + t.DueDate); 
+                            sheet.Cell(row, 3).Value = t.Color;
+                            sheet.Cell(row, 4).SetValue("'" + t.Time.ToString("yyyy-MM-dd HH:mm"));
+                            sheet.Cell(row, 5).Value = t.Note;
+                            row++;
+                        }
+
+                        // 設定欄寬
+                        sheet.Column(1).Width = 40; // 項目
+                        sheet.Column(2).Width = 15; // 期程
+                        sheet.Column(3).Width = 15; // 顏色標籤
+                        sheet.Column(4).Width = 15; // 建立時間
+                        sheet.Column(5).Width = 40; // 備註
+
+                        // 設定列高統一為 25
+                        sheet.Rows().Height = 25;
+
+                        // 允許項目與備註欄位自動換行
+                        sheet.Column(1).Style.Alignment.WrapText = true;
+                        sheet.Column(5).Style.Alignment.WrapText = true;
+
+                        workbook.SaveAs(sfd.FileName);
+                        MessageBox.Show("Excel 檔案已成功導出！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("匯出時發生錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
     private void ExecuteExportPDF() {
         using (SaveFileDialog sfd = new SaveFileDialog()) {
             sfd.Filter = "PDF 檔案|*.pdf";
@@ -919,9 +993,6 @@ public class TaskCalendarWindow : Form {
         cmbMonth.SelectedIndexChanged += (s, e) => RefreshData();
         topPanel.Controls.Add(cmbMonth);
 
-        // ----------------------------------------------------
-        // 【新增】 << (上個月) 按鈕
-        // ----------------------------------------------------
         Button btnPrev = new Button();
         btnPrev.Text = "<<";
         btnPrev.Width = (int)(45 * scale);
@@ -944,7 +1015,6 @@ public class TaskCalendarWindow : Form {
         };
         topPanel.Controls.Add(btnPrev);
 
-        // 回到本月按鈕
         Button btnToday = new Button();
         btnToday.Text = "回到本月";
         btnToday.Width = (int)(100 * scale);
@@ -962,9 +1032,6 @@ public class TaskCalendarWindow : Form {
         };
         topPanel.Controls.Add(btnToday);
 
-        // ----------------------------------------------------
-        // 【新增】 >> (下個月) 按鈕
-        // ----------------------------------------------------
         Button btnNext = new Button();
         btnNext.Text = ">>";
         btnNext.Width = (int)(45 * scale);
