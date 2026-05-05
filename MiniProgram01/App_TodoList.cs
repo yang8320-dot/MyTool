@@ -95,10 +95,10 @@ public class App_TodoList : UserControl {
         chkDate.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         chkDate.Cursor = Cursors.Hand;
 
-        // 【新增】如果是「行程」，強制勾選並鎖定
+        // 如果是「行程」，強制勾選並鎖定
         if (this.listType == "schedule") {
             chkDate.Checked = true;
-            chkDate.Enabled = false; // 反灰，不讓使用者取消
+            chkDate.Enabled = false; 
         }
 
         Button btnAdd = new Button();
@@ -250,7 +250,6 @@ public class App_TodoList : UserControl {
 
         AddTask(text, "Black", "手動", "", dueDateStr, noteAddon);
         inputField.Text = "";
-        // 只有非 schedule 才取消打勾
         if (this.listType != "schedule") {
             chkDate.Checked = false;
         }
@@ -339,6 +338,44 @@ public class App_TodoList : UserControl {
 
         foreach (var task in taskDataList) {
             CreateTaskUICard(task, false);
+        }
+    }
+
+    // 【新增】檢查並將已到期的預排任務轉正的方法
+    public void ConvertAdvanceTasksToNormal() {
+        bool changed = false;
+        DateTime today = DateTime.Now.Date;
+        
+        foreach (var t in taskDataList) {
+            if (t.Text.StartsWith("[預排-")) {
+                int closeBracketIndex = t.Text.IndexOf(']');
+                if (closeBracketIndex > 0 && t.Text.Length > closeBracketIndex + 1) {
+                    string datePart = t.Text.Substring(4, closeBracketIndex - 4); 
+                    if (DateTime.TryParseExact(datePart, "MM/dd", null, System.Globalization.DateTimeStyles.None, out DateTime parsedDate)) {
+                        DateTime targetDate = new DateTime(today.Year, parsedDate.Month, parsedDate.Day);
+                        // 處理跨年預排情況
+                        if (today.Month == 12 && parsedDate.Month == 1) {
+                            targetDate = new DateTime(today.Year + 1, parsedDate.Month, parsedDate.Day);
+                        } else if (today.Month == 1 && parsedDate.Month == 12) {
+                            targetDate = new DateTime(today.Year - 1, parsedDate.Month, parsedDate.Day);
+                        }
+                        
+                        // 若目標日期已到達或超過，則將標籤拔除
+                        if (targetDate.Date <= today) {
+                            t.Text = t.Text.Substring(closeBracketIndex + 1).TrimStart();
+                            UpdateTaskInDb(t);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (changed) {
+            if (this.InvokeRequired) {
+                this.Invoke(new Action(() => LoadTasksFromDb()));
+            } else {
+                LoadTasksFromDb();
+            }
         }
     }
 
@@ -504,7 +541,6 @@ public class App_TodoList : UserControl {
 
         Button btnEdit = CreateCardButton("修");
         Action triggerEdit = () => {
-            // 【修改】改成彈出全新的綜合編輯視窗
             ListTaskEditForm editF = new ListTaskEditForm(task, this);
             editF.ShowDialog();
         };
@@ -614,7 +650,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // 【新增】匯入 Excel 邏輯 (支援標題欄位精準比對)
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -664,13 +699,17 @@ public class App_TodoList : UserControl {
                             if (string.IsNullOrEmpty(color)) color = "Black";
 
                             string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
+                            // 【修正】確保匯入後的備註保留正確的換行符號
+                            if (!string.IsNullOrEmpty(note)) {
+                                note = note.Replace("\r\n", "\n").Replace("\n", "\r\n");
+                            }
 
                             AddTask(text, color, "Excel匯入", note, due, "");
                             count++;
                         }
 
                         MessageBox.Show($"Excel 匯入完成！\n\n成功新增了 {count} 筆任務", "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        LoadTasksFromDb(); // 重新整理畫面
+                        LoadTasksFromDb(); 
                     }
                 } catch (Exception ex) {
                     MessageBox.Show("檔案格式有誤或被其他程式鎖定。\n詳細錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -864,9 +903,6 @@ public class App_TodoList : UserControl {
     }
 }
 
-// ============================================================
-// 【新增】清單專用的完整編輯視窗 (結合名稱、備註、期程設定)
-// ============================================================
 public class ListTaskEditForm : Form {
     private App_TodoList.TaskInfo task;
     private App_TodoList parent;
@@ -973,7 +1009,7 @@ public class ListTaskEditForm : Form {
             task.DueDate = txtDate.Text.Trim();
             
             parent.UpdateTaskInDb(task);
-            parent.LoadTasksFromDb(); // 重新整理父視窗
+            parent.LoadTasksFromDb(); 
             this.Close();
         };
 
@@ -1041,7 +1077,6 @@ public class DateTimePickerDialog : Form {
             SelectedDateTime = new DateTime(dpDate.Value.Year, dpDate.Value.Month, dpDate.Value.Day, dpTime.Value.Hour, dpTime.Value.Minute, 0);
         };
 
-        // 【新增】將這個按鈕設為 Form 的 AcceptButton，支援 Enter 鍵觸發
         this.AcceptButton = btnOk;
 
         this.Controls.Add(l1);
