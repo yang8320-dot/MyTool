@@ -123,7 +123,7 @@ public class App_RecurringTasks : UserControl {
         checkTimer.Interval = GetTimerInterval(scanFrequency);
         checkTimer.Enabled = true;
         checkTimer.Tick += (s, e) => CheckTasks();
-        CheckTasks();
+        CheckTasks(); // 啟動時立刻檢查一次
     }
 
     private Button CreateHeaderButton(string text, Color bg, Color fg) {
@@ -463,6 +463,9 @@ public class App_RecurringTasks : UserControl {
         bool needsRefresh = false;
         List<RecurringTask> toRemove = new List<RecurringTask>();
 
+        // 【新增】檢查現有清單中，是否有原本標示「預排」，但今天已經到期的任務，將其轉正
+        todoApp.ConvertAdvanceTasksToNormal();
+
         foreach (var t in tasks) {
             DateTime target;
             if (TryGetNextTriggerTime(t, now, out target)) {
@@ -472,12 +475,13 @@ public class App_RecurringTasks : UserControl {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
                     
                     if (t.LastTriggeredDate != targetDateStr) {
-                        string prefix = advanceDays > 0 ? $"[預排-{target:MM/dd}] " : "";
+                        // 判斷當下是否真的為「預排」狀態 (也就是提前寫入)
+                        string prefix = (target.Date > now.Date) ? $"[預排-{target:MM/dd}] " : "";
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
-                        parentForm.AlertTab(1); 
+                        parentForm.AlertTab(1); // Alert 待辦分頁
                         
                         if (t.TaskType == "單次" || t.TaskType == "到期日" || t.MonthStr == "特定日期") {
                             toRemove.Add(t);
@@ -522,7 +526,6 @@ public class App_RecurringTasks : UserControl {
         }
     }
 
-    // 【修改】防呆機制修正：避免無限迴圈新增排程
     private bool TryGetNextTriggerTime(RecurringTask t, DateTime now, out DateTime target) {
         target = now;
         try {
@@ -564,15 +567,13 @@ public class App_RecurringTasks : UserControl {
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
             }
 
-            // 2. 防呆迴圈：如果推算出的目標日小於等於「上次已觸發之日期」，代表此週期已執行過，強制將目標日往未來推一個週期
-            for (int i = 0; i < 1000; i++) { // 保護限制，避免死迴圈
+            // 2. 防呆迴圈
+            for (int i = 0; i < 1000; i++) { 
                 bool needsAdvance = false;
                 
-                // 已經觸發過這個(或更未來)的日期，往下個週期推
                 if (!isNew && target.Date <= lastDt.Date) {
                     needsAdvance = true;
                 }
-                // 全新的任務，但它的初始基準日在過去，且不是今天，也要往未來推
                 if (isNew && target.Date < now.Date) {
                     needsAdvance = true;
                 }
@@ -581,7 +582,6 @@ public class App_RecurringTasks : UserControl {
                     break;
                 }
                 
-                // 依據週期往未來加
                 if (t.MonthStr == "每天") {
                     target = target.AddDays(1);
                 }
@@ -1464,6 +1464,11 @@ public class AllTasksViewWindow : Form {
                             string date = colMap.ContainsKey("指定日期") ? r.Cell(colMap["指定日期"]).GetString().Trim() : "";
                             string time = colMap.ContainsKey("觸發時間") ? r.Cell(colMap["觸發時間"]).GetString().Trim().TrimStart('\'') : "08:00";
                             string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
+                            
+                            // 【修正】確保匯入後的備註保留正確的換行符號
+                            if (!string.IsNullOrEmpty(note)) {
+                                note = note.Replace("\r\n", "\n").Replace("\n", "\r\n");
+                            }
 
                             if (type != "單次" && type != "到期日") {
                                 type = "循環";
