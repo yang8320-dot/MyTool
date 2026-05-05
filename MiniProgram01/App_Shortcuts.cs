@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.Data.Sqlite;
+using ClosedXML.Excel; // 【新增】引入 Excel 處理套件
 
 public class App_Shortcuts : UserControl {
     private MainForm parentForm;
@@ -36,9 +37,11 @@ public class App_Shortcuts : UserControl {
         TableLayoutPanel header = new TableLayoutPanel();
         header.Dock = DockStyle.Top;
         header.Height = (int)(45 * scale);
-        header.ColumnCount = 2;
+        header.ColumnCount = 4;
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(100 * scale)));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 匯入設定
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 匯出設定
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(85 * scale))); // 新增
 
         Label lblTitle = new Label();
         lblTitle.Text = "常用捷徑";
@@ -47,9 +50,33 @@ public class App_Shortcuts : UserControl {
         lblTitle.TextAlign = ContentAlignment.MiddleLeft;
         lblTitle.Padding = new Padding((int)(5 * scale), 0, 0, 0);
         lblTitle.ForeColor = UITheme.TextMain;
+
+        Button btnImport = new Button();
+        btnImport.Text = "匯入設定";
+        btnImport.Dock = DockStyle.Fill;
+        btnImport.FlatStyle = FlatStyle.Flat;
+        btnImport.Margin = new Padding((int)(2 * scale), (int)(6 * scale), (int)(2 * scale), (int)(8 * scale));
+        btnImport.Cursor = Cursors.Hand;
+        btnImport.BackColor = UITheme.AppleBlue;
+        btnImport.ForeColor = UITheme.CardWhite;
+        btnImport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnImport.FlatAppearance.BorderSize = 0; 
+        btnImport.Click += (s, e) => ExecuteImportExcel();
+
+        Button btnExport = new Button();
+        btnExport.Text = "匯出設定";
+        btnExport.Dock = DockStyle.Fill;
+        btnExport.FlatStyle = FlatStyle.Flat;
+        btnExport.Margin = new Padding((int)(2 * scale), (int)(6 * scale), (int)(2 * scale), (int)(8 * scale));
+        btnExport.Cursor = Cursors.Hand;
+        btnExport.BackColor = UITheme.AppleGreen;
+        btnExport.ForeColor = UITheme.CardWhite;
+        btnExport.Font = UITheme.GetFont(10f, FontStyle.Bold);
+        btnExport.FlatAppearance.BorderSize = 0; 
+        btnExport.Click += (s, e) => ExecuteExportExcel();
         
         Button btnAdd = new Button();
-        btnAdd.Text = "新增";
+        btnAdd.Text = "新增捷徑";
         btnAdd.Dock = DockStyle.Fill;
         btnAdd.FlatStyle = FlatStyle.Flat;
         btnAdd.Margin = new Padding((int)(2 * scale), (int)(6 * scale), (int)(2 * scale), (int)(8 * scale));
@@ -61,7 +88,9 @@ public class App_Shortcuts : UserControl {
         btnAdd.Click += (s, e) => { new EditShortcutWindow(this, null).ShowDialog(); };
 
         header.Controls.Add(lblTitle, 0, 0);
-        header.Controls.Add(btnAdd, 1, 0);
+        header.Controls.Add(btnImport, 1, 0);
+        header.Controls.Add(btnExport, 2, 0);
+        header.Controls.Add(btnAdd, 3, 0);
         this.Controls.Add(header);
 
         taskPanel = new FlowLayoutPanel();
@@ -104,11 +133,10 @@ public class App_Shortcuts : UserControl {
             card.Width = startWidth;
             card.AutoSize = true;
             card.Margin = new Padding(0, 0, 0, (int)(3 * scale));
-            card.BackColor = UITheme.BgGray; // 【修改】與背景色融合
+            card.BackColor = UITheme.BgGray; 
             card.Tag = s;
 
             card.Paint += (sender, e) => {
-                // 【修改】保留邊框供辨識，去除白底
                 UITheme.DrawRoundedBackground(e.Graphics, new Rectangle(0, 0, card.Width - 1, card.Height - 1), (int)(8 * scale), UITheme.BgGray);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 using (var pen = new Pen(Color.FromArgb(210, 210, 210), 1)) {
@@ -164,7 +192,6 @@ public class App_Shortcuts : UserControl {
                     DeleteShortcutDb(s.Id);
                     shortcuts.Remove(s);
                     
-                    // 【修改】記錄滾動位置，移除後復原
                     Point scrollPos = new Point(Math.Abs(taskPanel.AutoScrollPosition.X), Math.Abs(taskPanel.AutoScrollPosition.Y));
                     taskPanel.SuspendLayout();
                     taskPanel.Controls.Remove(card);
@@ -192,7 +219,7 @@ public class App_Shortcuts : UserControl {
             btnEdit.Text = "修";
             btnEdit.Dock = DockStyle.Top;
             btnEdit.Height = (int)(32 * scale);
-            btnEdit.BackColor = UITheme.BgGray; // 【修改】
+            btnEdit.BackColor = UITheme.BgGray; 
             btnEdit.ForeColor = UITheme.TextMain;
             btnEdit.FlatStyle = FlatStyle.Flat;
             btnEdit.Cursor = Cursors.Hand;
@@ -320,6 +347,98 @@ public class App_Shortcuts : UserControl {
             using (var cmd = new SqliteCommand("DELETE FROM Shortcuts WHERE Id=@Id", conn)) {
                 cmd.Parameters.AddWithValue("@Id", id);
                 cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    // 【新增】匯出設定邏輯
+    private void ExecuteExportExcel() {
+        using (SaveFileDialog sfd = new SaveFileDialog()) {
+            sfd.Filter = "Excel 活頁簿|*.xlsx";
+            sfd.FileName = $"捷徑設定_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            if (sfd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook()) {
+                        var sheet = workbook.Worksheets.Add("捷徑設定");
+                        sheet.Cell(1, 1).Value = "捷徑名稱";
+                        sheet.Cell(1, 2).Value = "目標路徑";
+                        
+                        var headerRange = sheet.Range("A1:B1");
+                        headerRange.Style.Font.Bold = true; 
+                        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+                        int row = 2;
+                        foreach (var s in shortcuts) {
+                            sheet.Cell(row, 1).Value = s.Name;
+                            sheet.Cell(row, 2).Value = s.Path;
+                            row++;
+                        }
+                        
+                        sheet.Column(1).Width = 30;
+                        sheet.Column(2).Width = 70;
+                        
+                        workbook.SaveAs(sfd.FileName);
+                        MessageBox.Show("捷徑設定匯出成功！", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("匯出時發生錯誤：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
+    // 【新增】匯入設定邏輯
+    private void ExecuteImportExcel() {
+        using (OpenFileDialog ofd = new OpenFileDialog()) {
+            ofd.Filter = "Excel 活頁簿|*.xlsx";
+            ofd.Title = "選擇要匯入的捷徑設定檔";
+            if (ofd.ShowDialog() == DialogResult.OK) {
+                try {
+                    using (var workbook = new XLWorkbook(ofd.FileName)) {
+                        var sheet = workbook.Worksheets.First();
+                        var headerRow = sheet.Row(1);
+                        Dictionary<string, int> colMap = new Dictionary<string, int>();
+                        foreach (var cell in headerRow.CellsUsed()) {
+                            colMap[cell.GetString().Trim()] = cell.Address.ColumnNumber;
+                        }
+
+                        if (!colMap.ContainsKey("捷徑名稱") || !colMap.ContainsKey("目標路徑")) {
+                            MessageBox.Show("找不到必要的標題欄位！請確認包含『捷徑名稱』與『目標路徑』", "格式錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+
+                        int count = 0;
+                        using (var conn = DbHelper.GetConnection()) {
+                            conn.Open();
+                            using (var trans = conn.BeginTransaction()) {
+                                
+                                int currentMaxOrder = shortcuts.Count > 0 ? shortcuts.Max(s => s.OrderIndex) : -1;
+
+                                foreach (var r in sheet.RangeUsed().RowsUsed().Skip(1)) {
+                                    string name = r.Cell(colMap["捷徑名稱"]).GetString().Trim();
+                                    string path = r.Cell(colMap["目標路徑"]).GetString().Trim();
+                                    
+                                    if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(path)) continue;
+
+                                    currentMaxOrder++;
+                                    string sql = "INSERT INTO Shortcuts (Name, Path, OrderIndex) VALUES (@Name, @Path, @Order)";
+                                    using (var cmd = new SqliteCommand(sql, conn, trans)) {
+                                        cmd.Parameters.AddWithValue("@Name", name); 
+                                        cmd.Parameters.AddWithValue("@Path", path);
+                                        cmd.Parameters.AddWithValue("@Order", currentMaxOrder);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                    count++;
+                                }
+                                trans.Commit();
+                            }
+                        }
+                        LoadShortcutsFromDb();
+                        MessageBox.Show($"匯入完成！\n共新增了 {count} 筆捷徑。", "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("匯入失敗：" + ex.Message, "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
     }
