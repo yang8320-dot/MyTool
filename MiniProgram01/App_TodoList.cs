@@ -36,7 +36,7 @@ public class App_TodoList : UserControl {
     private List<TaskInfo> taskDataList = new List<TaskInfo>();
     private int dragInsertIndex = -1; 
     private MainForm mainForm;
-    public float scale; // 開放給 EditForm 使用
+    public float scale; 
 
     private readonly string[] colorCycle = { "Black", "Red", "DodgerBlue", "MediumOrchid", "DarkGreen", "DarkOrange" };
 
@@ -95,7 +95,6 @@ public class App_TodoList : UserControl {
         chkDate.Margin = new Padding(0, (int)(8 * scale), 0, 0);
         chkDate.Cursor = Cursors.Hand;
 
-        // 如果是「行程」，強制勾選並鎖定
         if (this.listType == "schedule") {
             chkDate.Checked = true;
             chkDate.Enabled = false; 
@@ -341,7 +340,6 @@ public class App_TodoList : UserControl {
         }
     }
 
-    // 【新增】檢查並將已到期的預排任務轉正的方法
     public void ConvertAdvanceTasksToNormal() {
         bool changed = false;
         DateTime today = DateTime.Now.Date;
@@ -353,14 +351,12 @@ public class App_TodoList : UserControl {
                     string datePart = t.Text.Substring(4, closeBracketIndex - 4); 
                     if (DateTime.TryParseExact(datePart, "MM/dd", null, System.Globalization.DateTimeStyles.None, out DateTime parsedDate)) {
                         DateTime targetDate = new DateTime(today.Year, parsedDate.Month, parsedDate.Day);
-                        // 處理跨年預排情況
                         if (today.Month == 12 && parsedDate.Month == 1) {
                             targetDate = new DateTime(today.Year + 1, parsedDate.Month, parsedDate.Day);
                         } else if (today.Month == 1 && parsedDate.Month == 12) {
                             targetDate = new DateTime(today.Year - 1, parsedDate.Month, parsedDate.Day);
                         }
                         
-                        // 若目標日期已到達或超過，則將標籤拔除
                         if (targetDate.Date <= today) {
                             t.Text = t.Text.Substring(closeBracketIndex + 1).TrimStart();
                             UpdateTaskInDb(t);
@@ -649,7 +645,6 @@ public class App_TodoList : UserControl {
             taskContainer.Invalidate(); 
         }
     }
-
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -699,7 +694,6 @@ public class App_TodoList : UserControl {
                             if (string.IsNullOrEmpty(color)) color = "Black";
 
                             string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
-                            // 【修正】確保匯入後的備註保留正確的換行符號
                             if (!string.IsNullOrEmpty(note)) {
                                 note = note.Replace("\r\n", "\n").Replace("\n", "\r\n");
                             }
@@ -1025,7 +1019,7 @@ public class DateTimePickerDialog : Form {
 
     public DateTimePickerDialog(float scale) {
         this.Text = "設定期程";
-        this.ClientSize = new Size((int)(300 * scale), (int)(220 * scale)); 
+        this.ClientSize = new Size((int)(300 * scale), (int)(380 * scale)); 
         this.StartPosition = FormStartPosition.CenterScreen; 
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
@@ -1037,33 +1031,61 @@ public class DateTimePickerDialog : Form {
         Label l1 = new Label();
         l1.Text = "請選擇日期：";
         l1.AutoSize = true;
-        l1.Location = new Point((int)(20 * scale), (int)(20 * scale));
+        l1.Location = new Point((int)(20 * scale), (int)(15 * scale));
         l1.Font = UITheme.GetFont(10f, FontStyle.Bold);
         
         dpDate = new DateTimePicker();
         dpDate.Format = DateTimePickerFormat.Custom;
         dpDate.CustomFormat = "yyyy-MM-dd";
-        dpDate.Location = new Point((int)(20 * scale), (int)(45 * scale));
+        dpDate.Location = new Point((int)(20 * scale), (int)(40 * scale));
         dpDate.Width = (int)(240 * scale);
         dpDate.Font = UITheme.GetFont(11f);
 
         Label l2 = new Label();
         l2.Text = "請選擇時間：";
         l2.AutoSize = true;
-        l2.Location = new Point((int)(20 * scale), (int)(85 * scale));
+        l2.Location = new Point((int)(20 * scale), (int)(75 * scale));
         l2.Font = UITheme.GetFont(10f, FontStyle.Bold);
 
         dpTime = new DateTimePicker();
         dpTime.Format = DateTimePickerFormat.Custom;
         dpTime.CustomFormat = "HH:mm";
         dpTime.ShowUpDown = true;
-        dpTime.Location = new Point((int)(20 * scale), (int)(110 * scale));
+        dpTime.Location = new Point((int)(20 * scale), (int)(100 * scale));
         dpTime.Width = (int)(240 * scale);
         dpTime.Font = UITheme.GetFont(11f);
 
+        FlowLayoutPanel timePanel = new FlowLayoutPanel();
+        timePanel.Location = new Point((int)(18 * scale), (int)(135 * scale));
+        timePanel.Width = (int)(250 * scale);
+        timePanel.Height = (int)(170 * scale);
+        timePanel.AutoScroll = true;
+
+        for (int h = 8; h <= 17; h++) {
+            foreach (int m in new[] { 0, 30 }) {
+                if (h == 17 && m == 30) continue; 
+                Button btnT = new Button();
+                btnT.Text = $"{h:D2}:{m:D2}";
+                btnT.Width = (int)(55 * scale);
+                btnT.Height = (int)(28 * scale);
+                btnT.FlatStyle = FlatStyle.Flat;
+                btnT.BackColor = UITheme.CardWhite;
+                btnT.ForeColor = UITheme.TextMain;
+                btnT.Font = UITheme.GetFont(9f);
+                btnT.Margin = new Padding((int)(2 * scale));
+                btnT.Cursor = Cursors.Hand;
+                btnT.FlatAppearance.BorderColor = Color.LightGray;
+
+                btnT.Click += (s, e) => {
+                    dpTime.Value = new DateTime(dpTime.Value.Year, dpTime.Value.Month, dpTime.Value.Day, h, m, 0);
+                };
+                timePanel.Controls.Add(btnT);
+            }
+        }
+
         Button btnOk = new Button();
         btnOk.Text = "確認";
-        btnOk.Location = new Point((int)(160 * scale), (int)(160 * scale));
+        btnOk.Location = new Point((int)(160 * scale), (int)(320 * scale));
         btnOk.Width = (int)(100 * scale);
         btnOk.Height = (int)(35 * scale);
         btnOk.DialogResult = DialogResult.OK;
@@ -1083,6 +1105,7 @@ public class DateTimePickerDialog : Form {
         this.Controls.Add(dpDate);
         this.Controls.Add(l2);
         this.Controls.Add(dpTime);
+        this.Controls.Add(timePanel);
         this.Controls.Add(btnOk);
     }
 }
