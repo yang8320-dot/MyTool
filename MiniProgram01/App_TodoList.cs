@@ -1011,7 +1011,6 @@ public class ListTaskEditForm : Form {
         this.Controls.Add(f);
     }
 }
-
 public class DateTimePickerDialog : Form {
     private DateTimePicker dpDate;
     private DateTimePicker dpTime;
@@ -1064,8 +1063,12 @@ public class DateTimePickerDialog : Form {
         for (int h = 8; h <= 17; h++) {
             foreach (int m in new[] { 0, 30 }) {
                 if (h == 17 && m == 30) continue; 
+                
+                int currentH = h;
+                int currentM = m;
+
                 Button btnT = new Button();
-                btnT.Text = $"{h:D2}:{m:D2}";
+                btnT.Text = $"{currentH:D2}:{currentM:D2}";
                 btnT.Width = (int)(55 * scale);
                 btnT.Height = (int)(28 * scale);
                 btnT.FlatStyle = FlatStyle.Flat;
@@ -1077,7 +1080,7 @@ public class DateTimePickerDialog : Form {
                 btnT.FlatAppearance.BorderColor = Color.LightGray;
 
                 btnT.Click += (s, e) => {
-                    dpTime.Value = new DateTime(dpTime.Value.Year, dpTime.Value.Month, dpTime.Value.Day, h, m, 0);
+                    dpTime.Value = new DateTime(dpTime.Value.Year, dpTime.Value.Month, dpTime.Value.Day, currentH, currentM, 0);
                 };
                 timePanel.Controls.Add(btnT);
             }
@@ -1700,3 +1703,4 @@ public class CalendarTaskEditForm : Form {
         this.Controls.Add(f);
     }
 }
+    
