@@ -123,7 +123,7 @@ public class App_RecurringTasks : UserControl {
         checkTimer.Interval = GetTimerInterval(scanFrequency);
         checkTimer.Enabled = true;
         checkTimer.Tick += (s, e) => CheckTasks();
-        CheckTasks(); // 啟動時立刻檢查一次
+        CheckTasks(); 
     }
 
     private Button CreateHeaderButton(string text, Color bg, Color fg) {
@@ -463,7 +463,6 @@ public class App_RecurringTasks : UserControl {
         bool needsRefresh = false;
         List<RecurringTask> toRemove = new List<RecurringTask>();
 
-        // 【新增】檢查現有清單中，是否有原本標示「預排」，但今天已經到期的任務，將其轉正
         todoApp.ConvertAdvanceTasksToNormal();
 
         foreach (var t in tasks) {
@@ -475,13 +474,12 @@ public class App_RecurringTasks : UserControl {
                     string targetDateStr = target.ToString("yyyy-MM-dd");
                     
                     if (t.LastTriggeredDate != targetDateStr) {
-                        // 判斷當下是否真的為「預排」狀態 (也就是提前寫入)
                         string prefix = (target.Date > now.Date) ? $"[預排-{target:MM/dd}] " : "";
                         todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
                         
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
-                        parentForm.AlertTab(1); // Alert 待辦分頁
+                        parentForm.AlertTab(1); 
                         
                         if (t.TaskType == "單次" || t.TaskType == "到期日" || t.MonthStr == "特定日期") {
                             toRemove.Add(t);
@@ -547,7 +545,6 @@ public class App_RecurringTasks : UserControl {
                 return false;
             }
 
-            // 1. 建立初始基準日
             if (t.MonthStr == "每天") {
                 target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
             }
@@ -567,7 +564,6 @@ public class App_RecurringTasks : UserControl {
                 target = new DateTime(now.Year, month, validDay, h, m, 0);
             }
 
-            // 2. 防呆迴圈
             for (int i = 0; i < 1000; i++) { 
                 bool needsAdvance = false;
                 
@@ -673,7 +669,7 @@ public class AddRecurringTaskWindow : Form {
         float scale = this.DeviceDpi / 96f;
         this.Text = "新增任務"; 
         this.Width = (int)(420 * scale); 
-        this.Height = (int)(680 * scale); 
+        this.Height = (int)(800 * scale); 
         this.StartPosition = FormStartPosition.CenterScreen;
         this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
@@ -813,6 +809,35 @@ public class AddRecurringTaskWindow : Form {
         dtpTime.Font = UITheme.GetFont(10.5f);
         f.Controls.Add(dtpTime);
 
+        FlowLayoutPanel timePanel = new FlowLayoutPanel();
+        timePanel.Width = (int)(350 * scale);
+        timePanel.Height = (int)(90 * scale);
+        timePanel.Margin = new Padding(0, (int)(5 * scale), 0, 0);
+        timePanel.AutoScroll = true;
+        
+        for (int h = 9; h <= 17; h++) {
+            foreach (int m in new[] { 0, 30 }) {
+                if (h == 17 && m == 30) continue;
+                Button btnT = new Button();
+                btnT.Text = $"{h:D2}:{m:D2}";
+                btnT.Width = (int)(53 * scale);
+                btnT.Height = (int)(25 * scale);
+                btnT.FlatStyle = FlatStyle.Flat;
+                btnT.BackColor = UITheme.CardWhite;
+                btnT.ForeColor = UITheme.TextMain;
+                btnT.Font = UITheme.GetFont(8.5f);
+                btnT.Margin = new Padding((int)(2 * scale));
+                btnT.Cursor = Cursors.Hand;
+                btnT.FlatAppearance.BorderColor = Color.LightGray;
+
+                btnT.Click += (s, e) => {
+                    dtpTime.Value = new DateTime(dtpTime.Value.Year, dtpTime.Value.Month, dtpTime.Value.Day, h, m, 0);
+                };
+                timePanel.Controls.Add(btnT);
+            }
+        }
+        f.Controls.Add(timePanel);
+
         Button btn = new Button();
         btn.Text = "建立任務";
         btn.Width = (int)(340 * scale);
@@ -820,7 +845,7 @@ public class AddRecurringTaskWindow : Form {
         btn.BackColor = UITheme.AppleBlue;
         btn.ForeColor = UITheme.CardWhite;
         btn.FlatStyle = FlatStyle.Flat;
-        btn.Margin = new Padding(0, (int)(25 * scale), 0, 0);
+        btn.Margin = new Padding(0, (int)(10 * scale), 0, 0);
         btn.Font = UITheme.GetFont(11f, FontStyle.Bold);
         btn.Cursor = Cursors.Hand;
         btn.FlatAppearance.BorderSize = 0;
@@ -862,7 +887,7 @@ public class EditRecurringTaskWindow : Form {
         float scale = this.DeviceDpi / 96f;
         this.Text = "調整任務"; 
         this.Width = (int)(420 * scale); 
-        this.Height = (int)(680 * scale); 
+        this.Height = (int)(800 * scale); 
         this.StartPosition = FormStartPosition.CenterScreen;
         this.TopMost = true; 
         this.BackColor = UITheme.BgGray;
@@ -1024,6 +1049,35 @@ public class EditRecurringTaskWindow : Form {
         }
         f.Controls.Add(dtpTime);
 
+        FlowLayoutPanel timePanel = new FlowLayoutPanel();
+        timePanel.Width = (int)(350 * scale);
+        timePanel.Height = (int)(90 * scale);
+        timePanel.Margin = new Padding(0, (int)(5 * scale), 0, 0);
+        timePanel.AutoScroll = true;
+        
+        for (int h = 9; h <= 17; h++) {
+            foreach (int m in new[] { 0, 30 }) {
+                if (h == 17 && m == 30) continue;
+                Button btnT = new Button();
+                btnT.Text = $"{h:D2}:{m:D2}";
+                btnT.Width = (int)(53 * scale);
+                btnT.Height = (int)(25 * scale);
+                btnT.FlatStyle = FlatStyle.Flat;
+                btnT.BackColor = UITheme.CardWhite;
+                btnT.ForeColor = UITheme.TextMain;
+                btnT.Font = UITheme.GetFont(8.5f);
+                btnT.Margin = new Padding((int)(2 * scale));
+                btnT.Cursor = Cursors.Hand;
+                btnT.FlatAppearance.BorderColor = Color.LightGray;
+
+                btnT.Click += (s, e) => {
+                    dtpTime.Value = new DateTime(dtpTime.Value.Year, dtpTime.Value.Month, dtpTime.Value.Day, h, m, 0);
+                };
+                timePanel.Controls.Add(btnT);
+            }
+        }
+        f.Controls.Add(timePanel);
+
         Button btn = new Button();
         btn.Text = "儲存修改";
         btn.Width = (int)(340 * scale);
@@ -1031,7 +1085,7 @@ public class EditRecurringTaskWindow : Form {
         btn.BackColor = UITheme.AppleGreen;
         btn.ForeColor = UITheme.CardWhite;
         btn.FlatStyle = FlatStyle.Flat;
-        btn.Margin = new Padding(0, (int)(25 * scale), 0, 0);
+        btn.Margin = new Padding(0, (int)(10 * scale), 0, 0);
         btn.Font = UITheme.GetFont(11f, FontStyle.Bold);
         btn.Cursor = Cursors.Hand;
         btn.FlatAppearance.BorderSize = 0;
@@ -1465,7 +1519,6 @@ public class AllTasksViewWindow : Form {
                             string time = colMap.ContainsKey("觸發時間") ? r.Cell(colMap["觸發時間"]).GetString().Trim().TrimStart('\'') : "08:00";
                             string note = colMap.ContainsKey("備註") ? r.Cell(colMap["備註"]).GetString().Trim() : "";
                             
-                            // 【修正】確保匯入後的備註保留正確的換行符號
                             if (!string.IsNullOrEmpty(note)) {
                                 note = note.Replace("\r\n", "\n").Replace("\n", "\r\n");
                             }
