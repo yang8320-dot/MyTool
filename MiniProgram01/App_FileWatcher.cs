@@ -10,7 +10,7 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Linq;
 using Microsoft.Data.Sqlite;
-using ClosedXML.Excel; // 【新增】引入 Excel 處理套件
+using ClosedXML.Excel; 
 
 public class App_FileWatcher : UserControl {
     private MainForm parentForm;
@@ -246,6 +246,7 @@ public class App_FileWatcher : UserControl {
                 };
                 wSrc.Changed += OnFileEvent; 
                 wSrc.Created += OnFileEvent; 
+                wSrc.Deleted += OnFileDeleted; 
                 watchers.Add(wSrc);
             }
 
@@ -262,6 +263,31 @@ public class App_FileWatcher : UserControl {
                     watchers.Add(wDst);
                 }
             }
+        } catch { }
+    }
+
+    private void OnFileDeleted(object sender, FileSystemEventArgs e) {
+        try {
+            this.Invoke(new Action(() => {
+                Control[] found = cardPanel.Controls.Find(e.FullPath, false);
+                foreach (Control ctrl in found) {
+                    Panel c = ctrl as Panel;
+                    if (c != null) {
+                        TableLayoutPanel tlp = c.Controls[0] as TableLayoutPanel;
+                        if (tlp != null && tlp.Controls.Count > 1) {
+                            Label lbl = tlp.Controls[1] as Label;
+                            if (lbl != null) {
+                                lbl.ForeColor = UITheme.AppleRed;
+                                lbl.Font = UITheme.GetFont(10.5f, FontStyle.Bold);
+                                string[] lines = lbl.Text.Split('\n');
+                                if (lines.Length > 0) {
+                                    lbl.Text = lines[0] + "\n位置: 監測區已無檔案";
+                                }
+                            }
+                        }
+                    }
+                }
+            }));
         } catch { }
     }
 
@@ -385,7 +411,7 @@ public class App_FileWatcher : UserControl {
                 try {
                     this.Invoke(new Action(() => {
                         parentForm.AlertTab(0); 
-                        string cardUniqueName = displayFileName;
+                        string cardUniqueName = srcFile;
                         
                         foreach (Control ctrl in cardPanel.Controls) {
                             if (ctrl.Name == cardUniqueName) {
@@ -437,7 +463,13 @@ public class App_FileWatcher : UserControl {
                         bView.Font = UITheme.GetFont(9f, FontStyle.Bold);
                         bView.FlatAppearance.BorderSize = 0;
                         bView.Click += (s, e2) => {
-                            try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + srcFile + "\""); } catch { }
+                            string targetPathToOpen = srcFile;
+                            if (!File.Exists(srcFile) && !Directory.Exists(srcFile)) {
+                                if (targetFiles.Count > 0 && (File.Exists(targetFiles[0]) || Directory.Exists(targetFiles[0]))) {
+                                    targetPathToOpen = targetFiles[0];
+                                }
+                            }
+                            try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + targetPathToOpen + "\""); } catch { }
                             cardPanel.Controls.Remove(c); c.Dispose(); 
                         };
                         
@@ -507,7 +539,6 @@ public class App_FileWatcher : UserControl {
         }
     }
 
-    // 【新增】匯出設定邏輯
     private void ExecuteExportExcel() {
         using (SaveFileDialog sfd = new SaveFileDialog()) {
             sfd.Filter = "Excel 活頁簿|*.xlsx";
@@ -547,7 +578,6 @@ public class App_FileWatcher : UserControl {
         }
     }
 
-    // 【新增】匯入設定邏輯
     private void ExecuteImportExcel() {
         using (OpenFileDialog ofd = new OpenFileDialog()) {
             ofd.Filter = "Excel 活頁簿|*.xlsx";
@@ -603,7 +633,7 @@ public class App_FileWatcher : UserControl {
                                 trans.Commit();
                             }
                         }
-                        LoadConfigFromDb(); // 重新讀取設定並重啟監控
+                        LoadConfigFromDb(); 
                         MessageBox.Show($"匯入完成！\n共處理或更新了 {count} 筆監控設定。", "匯入成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 } catch (Exception ex) {
