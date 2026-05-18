@@ -475,7 +475,9 @@ public class App_RecurringTasks : UserControl {
                     
                     if (t.LastTriggeredDate != targetDateStr) {
                         string prefix = (target.Date > now.Date) ? $"[預排-{target:MM/dd}] " : "";
-                        todoApp.AddTask(prefix + t.Name, "Black", "週期觸發", t.Note); 
+                        
+                        // 【修改點】將 "Black" 改為 "DodgerBlue" (亮藍色)
+                        todoApp.AddTask(prefix + t.Name, "DodgerBlue", "週期觸發", t.Note); 
                         
                         t.LastTriggeredDate = targetDateStr; 
                         UpdateTaskInDb(t);
