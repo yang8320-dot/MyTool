@@ -386,6 +386,15 @@ public class App_FileWatcher : UserControl {
                     try {
                         string dir = Path.GetDirectoryName(tFile);
                         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                        
+                        // 【修改點】：靜默處理同名檔案覆寫與唯讀屬性移除
+                        if (File.Exists(tFile)) {
+                            FileAttributes attributes = File.GetAttributes(tFile);
+                            if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly) {
+                                File.SetAttributes(tFile, attributes & ~FileAttributes.ReadOnly);
+                            }
+                        }
+                        
                         File.Copy(srcFile, tFile, true); 
                         copySuccess = true; 
                         break;
@@ -443,19 +452,23 @@ public class App_FileWatcher : UserControl {
                         tlp.Padding = new Padding((int)(8 * scale));
                         tlp.BackColor = Color.Transparent;
 
-                        tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(65 * scale))); 
+                        // 【修改點】：改變排版，將按鈕改為並排
+                        tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)(110 * scale))); // 給按鈕更寬的空間放並排
                         tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); 
 
                         FlowLayoutPanel btnPnl = new FlowLayoutPanel();
-                        btnPnl.FlowDirection = FlowDirection.TopDown;
+                        btnPnl.FlowDirection = FlowDirection.LeftToRight; // 改為左右並排
                         btnPnl.AutoSize = true;
                         btnPnl.Margin = new Padding(0);
                         
+                        // 設定為與兩行文字等高，假設兩行字約 40-45 高度
+                        int btnHeight = (int)(40 * scale);
+
                         Button bView = new Button();
                         bView.Text = "查看";
                         bView.Width = (int)(55 * scale);
-                        bView.Height = (int)(28 * scale);
-                        bView.Margin = new Padding(0, (int)(2 * scale), 0, (int)(5 * scale));
+                        bView.Height = btnHeight;
+                        bView.Margin = new Padding(0, 0, (int)(5 * scale), 0); // 右邊留一點空隙
                         bView.BackColor = UITheme.AppleBlue;
                         bView.ForeColor = UITheme.CardWhite;
                         bView.FlatStyle = FlatStyle.Flat;
@@ -475,8 +488,9 @@ public class App_FileWatcher : UserControl {
                         
                         Button bClose = new Button();
                         bClose.Text = "X";
-                        bClose.Width = (int)(55 * scale);
-                        bClose.Height = (int)(28 * scale);
+                        bClose.Width = (int)(35 * scale);
+                        bClose.Height = btnHeight;
+                        bClose.Margin = new Padding(0);
                         bClose.BackColor = UITheme.AppleRed;
                         bClose.ForeColor = UITheme.CardWhite;
                         bClose.FlatStyle = FlatStyle.Flat;
@@ -493,7 +507,7 @@ public class App_FileWatcher : UserControl {
                         lbl.Text = displayFileName + "\n位置: " + displayLoc;
                         lbl.Dock = DockStyle.Fill;
                         lbl.AutoSize = true;
-                        lbl.Padding = new Padding((int)(10 * scale), (int)(5 * scale), 0, 0);
+                        lbl.Padding = new Padding((int)(5 * scale), (int)(2 * scale), 0, 0); // 調整與按鈕的對齊高度
                         lbl.TextAlign = ContentAlignment.MiddleLeft;
                         lbl.Font = UITheme.GetFont(10.5f);
                         lbl.ForeColor = UITheme.TextMain;
